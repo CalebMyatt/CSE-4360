@@ -67,6 +67,7 @@ class Robot:
   def turn_right(self, rad):
     self.turn_left(-rad)
   def move_forward(self, dist):
+    if dist == 0: return
     vel = 100.0 * abs(dist)/(2*PI)
     req_wheel_rot = 2*PI*(dist/self.WHEEL_CIRCUMFRENCE) # required rotation of wheel
 
