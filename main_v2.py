@@ -62,8 +62,6 @@ class Robot:
     time.sleep( (vel/self.SPEED) )
     self.lm.brake()
     self.rm.brake()
-
-    time.sleep( 1.0 )
   def turn_right(self, rad):
     self.turn_left(-rad)
   def move_forward(self, dist):
@@ -76,8 +74,6 @@ class Robot:
     time.sleep( (vel/self.SPEED) )
     self.lm.brake()
     self.rm.brake()
-
-    time.sleep( 1.0 )
 
   def solve_problem(self, problem):
     ev3 = EV3Brick()
@@ -161,6 +157,7 @@ class Robot:
   def execute_route(self, route):
     for (action, arg) in route:
       action(arg)
+      time.sleep( 1.0 )
 
 class Problem:
   def __init__(self, start, goal, size, obstacles, obstacle_size=2):
@@ -255,7 +252,7 @@ class Problem:
 # ===============
 robot = Robot(1.0)
 
-start = (1, 5, PI/2.0)
+start = (1, 5, 0.0)
 goal = (9,5)
 size = (16,10)
 obstacles = [((1,1),(2,2)),
