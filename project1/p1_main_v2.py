@@ -39,41 +39,38 @@ class Rel_Direction:
 class Robot:
   def __init__(self, speed):
     # calibrated from distance travel
-    self.WHEEL_RADIUS = .040 # wheel radius (m)
+    self.WHEEL_RADIUS = .039 # wheel radius (m)
     self.WHEEL_CIRCUMFRENCE = 2*PI*self.WHEEL_RADIUS
 
     # calibrated from 90 deg turns
-    self.AXLE_RADIUS = .089 # axle radius (m)
+    self.AXLE_RADIUS = .087 # axle radius (m)
     self.AXLE_CIRCUMFRENCE = 2*PI*self.AXLE_RADIUS
 
     self.SPEED = speed # 1.0 is the standard speed
+    self.comp = 1.007
 
     self.lm = Motor(Port.A, Direction.COUNTERCLOCKWISE)
     self.rm = Motor(Port.D, Direction.COUNTERCLOCKWISE)
 
 # units radians and meters
   def turn_left(self, rad):
-    vel = 10.0 * abs(rad)/(2*PI)
     req_axle_rot = rad*self.AXLE_RADIUS # arclength of axle circumfrence
     req_wheel_rot = 2*PI*(req_axle_rot/self.WHEEL_CIRCUMFRENCE) # required rotation of wheel
 
-    self.lm.run( -rad_to_deg(req_wheel_rot) * (self.SPEED/vel) )
-    self.rm.run(  rad_to_deg(req_wheel_rot) * (self.SPEED/vel) )
-    time.sleep( (vel/self.SPEED) )
-    self.lm.brake()
-    self.rm.brake()
+    self.lm.reset_angle(0)
+    self.rm.reset_angle(0)
+    self.lm.run_target(self.SPEED, -rad_to_deg(req_wheel_rot), wait=False)
+    self.rm.run_target(self.comp*self.SPEED, self.comp*rad_to_deg(req_wheel_rot))
   def turn_right(self, rad):
     self.turn_left(-rad)
   def move_forward(self, dist):
     if dist == 0: return
-    vel = 100.0 * abs(dist)/(2*PI)
     req_wheel_rot = 2*PI*(dist/self.WHEEL_CIRCUMFRENCE) # required rotation of wheel
 
-    self.lm.run( rad_to_deg(req_wheel_rot) * (self.SPEED/vel) )
-    self.rm.run( rad_to_deg(req_wheel_rot) * (self.SPEED/vel) )
-    time.sleep( (vel/self.SPEED) )
-    self.lm.brake()
-    self.rm.brake()
+    self.lm.reset_angle(0)
+    self.rm.reset_angle(0)
+    self.lm.run_target(self.SPEED, rad_to_deg(req_wheel_rot), wait=False)
+    self.rm.run_target(self.comp*self.SPEED, self.comp*rad_to_deg(req_wheel_rot))
 
   def solve_problem(self, problem):
     ev3 = EV3Brick()
@@ -91,6 +88,10 @@ class Robot:
     (goal_x, goal_y) = Problem.corner_point_to_field(problem.goal)
     (cur_x, cur_y, direction) = problem.start
     (cur_x, cur_y) = Problem.corner_point_to_field((cur_x,cur_y))
+
+    if problem.field[cur_x+1][cur_y] == -1:
+      print("No solution found")
+      return []
 
     actions = []
     while cur_x != goal_x or cur_y != goal_y:
@@ -250,7 +251,7 @@ class Problem:
       for dy in range(len_y):
         self.field [blx + dx][bly + dy] = sys.maxsize
 # ===============
-robot = Robot(1.0)
+robot = Robot(90.0)
 
 start = (1, 5, 0.0)
 goal = (9,5)
