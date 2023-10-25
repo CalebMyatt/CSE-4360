@@ -168,8 +168,8 @@ class Problem:
 
     self.init_field()
     self.bounding_box()
-    for (p1, p2) in obstacles:
-      self.add_obstacle(p1, p2, obstacle_size)
+    for p in obstacles:
+      self.add_single_obstacle(p, obstacle_size)
     self.floodfill()
   
   def corner_point_to_field(pos):
@@ -250,17 +250,32 @@ class Problem:
     for dx in range(len_x):
       for dy in range(len_y):
         self.field [blx + dx][bly + dy] = sys.maxsize
+  def add_single_obstacle(self, p, size):
+    self.add_obstacle(p, p, size)
 # ===============
 robot = Robot(90.0)
 
 start = (1, 5, 0.0)
 goal = (9,5)
 size = (16,10)
-obstacles = [((1,1),(2,2)),
-             ((2,7),(2,8)),
-             ((5,4),(5,6)),
-             ((8,2),(10,2)),
-             ((8,8),(8,8))]
+# obstacles = [((1,1),(2,2)),
+#              ((2,7),(2,8)),
+#              ((5,4),(5,6)),
+#              ((8,2),(10,2)),
+#              ((8,8),(8,8))]
+obstacles = [(1,1),
+             (1,2),
+             (2,1),
+             (2,2),
+             (2,7),
+             (2,8),
+             (5,4),
+             (5,5),
+             (5,6),
+             (8,2),
+             (9,2),
+             (10,2),
+             (8,8)]
 problem = Problem(start, goal, size, obstacles)
 problem.print_field()
 
