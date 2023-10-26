@@ -94,6 +94,7 @@ class Robot:
 
     actions = []
     while cur_x != goal_x or cur_y != goal_y:
+      print(direction)
       # getting absolute directions
       east = problem.field[cur_x+1][cur_y]
       west = problem.field[cur_x-1][cur_y]
@@ -252,7 +253,7 @@ class Problem:
 # ===============
 robot = Robot(1.0)
 
-start = (1, 5, 0.0)
+start = (1, 5, PI/2)
 goal = (9,5)
 size = (16,10)
 obstacles = [((1,1),(2,2)),
@@ -261,6 +262,6 @@ obstacles = [((1,1),(2,2)),
              ((8,2),(10,2)),
              ((8,8),(8,8))]
 problem = Problem(start, goal, size, obstacles)
-problem.print_field()
+# problem.print_field()
 
 robot.solve_problem(problem)

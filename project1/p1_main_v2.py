@@ -39,15 +39,15 @@ class Rel_Direction:
 class Robot:
   def __init__(self, speed):
     # calibrated from distance travel
-    self.WHEEL_RADIUS = .039 # wheel radius (m)
+    self.WHEEL_RADIUS = .040 # wheel radius (m)
     self.WHEEL_CIRCUMFRENCE = 2*PI*self.WHEEL_RADIUS
 
     # calibrated from 90 deg turns
-    self.AXLE_RADIUS = .087 # axle radius (m)
+    self.AXLE_RADIUS = .086 # axle radius (m)
     self.AXLE_CIRCUMFRENCE = 2*PI*self.AXLE_RADIUS
 
     self.SPEED = speed # 1.0 is the standard speed
-    self.comp = 1.007
+    self.comp = 1.015 # turn left more or less
 
     self.lm = Motor(Port.A, Direction.COUNTERCLOCKWISE)
     self.rm = Motor(Port.D, Direction.COUNTERCLOCKWISE)
@@ -60,7 +60,7 @@ class Robot:
     self.lm.reset_angle(0)
     self.rm.reset_angle(0)
     self.lm.run_target(self.SPEED, -rad_to_deg(req_wheel_rot), wait=False)
-    self.rm.run_target(self.comp*self.SPEED, self.comp*rad_to_deg(req_wheel_rot))
+    self.rm.run_target(self.comp*self.SPEED, rad_to_deg(req_wheel_rot))
   def turn_right(self, rad):
     self.turn_left(-rad)
   def move_forward(self, dist):
@@ -70,7 +70,7 @@ class Robot:
     self.lm.reset_angle(0)
     self.rm.reset_angle(0)
     self.lm.run_target(self.SPEED, rad_to_deg(req_wheel_rot), wait=False)
-    self.rm.run_target(self.comp*self.SPEED, self.comp*rad_to_deg(req_wheel_rot))
+    self.rm.run_target(self.comp*self.SPEED, rad_to_deg(req_wheel_rot))
 
   def solve_problem(self, problem):
     ev3 = EV3Brick()
@@ -100,10 +100,11 @@ class Robot:
       west = problem.field[cur_x-1][cur_y]
       north = problem.field[cur_x][cur_y+1]
       south = problem.field[cur_x][cur_y-1]
+      
 
       # getting the frame that the robot sees
       absolute_counterclockwise = [east,north,west,south]
-      abs_direction = int( rad_to_deg(direction)/90.0 ) # this should only be integer increments
+      abs_direction = int( rad_to_deg(direction)/90.0 ) % 4 # this should only be integer increments
       relative_counterclockwise = absolute_counterclockwise[abs_direction:] + absolute_counterclockwise[:abs_direction]
 
       # extracting values
@@ -112,6 +113,7 @@ class Robot:
       back = relative_counterclockwise[2]
       right = relative_counterclockwise[3]
 
+      
       # chosing action to take
       lowest = min(relative_counterclockwise)
       chosen_dir = 0
@@ -125,7 +127,7 @@ class Robot:
         chosen_dir = -1
         actions.append((self.turn_right, deg_to_rad(90.0)))
         direction -= PI/2.0
-      else:
+      elif lowest == back:
         chosen_dir = 2
         actions.append((self.turn_right, deg_to_rad(180.0)))
         direction += PI
@@ -255,27 +257,39 @@ class Problem:
 # ===============
 robot = Robot(90.0)
 
-start = (1, 5, 0.0)
-goal = (9,5)
+start = (1, 2, PI/2)
+goal = (12,7)
+
 size = (16,10)
 # obstacles = [((1,1),(2,2)),
 #              ((2,7),(2,8)),
 #              ((5,4),(5,6)),
 #              ((8,2),(10,2)),
 #              ((8,8),(8,8))]
-obstacles = [(1,1),
-             (1,2),
-             (2,1),
-             (2,2),
-             (2,7),
-             (2,8),
-             (5,4),
-             (5,5),
-             (5,6),
-             (8,2),
-             (9,2),
-             (10,2),
-             (8,8)]
+
+start = (1, 2, PI/2)
+goal = (12,7)
+obstacles = [(3,1),
+             (3,2),
+             (3,3),
+             (3,4),
+             (3,5),
+             (6,4),
+             (6,5),
+             (6,7),
+             (6,8),
+             (6,9),
+             (9,3),
+             (9,4),
+             (9,5),
+             (9,6),
+             (9,7),
+             (10,3),
+             (11,3),
+             (12,3),
+             (11,4),
+             (12,4),
+             ]
 problem = Problem(start, goal, size, obstacles)
 problem.print_field()
 
