@@ -19,6 +19,7 @@ def deg_to_rad(deg):
 def rad_to_deg(rad):
   return rad*180/PI
 
+# TODO: compensate for wheel wiggle when applicable
 class Robot:
   def __init__(self, left_wheel_radius, left_friction_bias, left_turn_bias, axle_radius, wheel_wiggle_bias, speed):
     gear_ratio = 5
@@ -41,21 +42,26 @@ class Robot:
     self.xc = 2*PI*self.xr
 
     # motors
-    self.lm = Motor(Port.A, Direction.COUNTERCLOCKWISE)
+    self.lm = Motor(Port.C, Direction.COUNTERCLOCKWISE)
     self.rm = Motor(Port.D, Direction.COUNTERCLOCKWISE)
 
 # units: radians and meters
-  def turn_left(self, rad):
+  def turn_left(self, rad, arc_radius):
     req_axle_rot = rad*self.xr # arclength of axle circumfrence
-    req_l_wheel_rot = -2*PI*( (req_axle_rot-self.wheel_wiggle_bias)/self.lwc ) # required rotation of left wheel
-    req_r_wheel_rot =  2*PI*( (req_axle_rot-self.wheel_wiggle_bias)/self.rwc ) # required rotation of right wheel
+    req_l_wheel_rot = 2*PI*( (-req_axle_rot-arc_radius)/self.lwc ) # required rotation of left wheel
+    req_r_wheel_rot = 2*PI*( ( req_axle_rot-arc_radius)/self.rwc ) # required rotation of right wheel
 
     self.lm.reset_angle(0)
     self.rm.reset_angle(0)
-    self.lm.run_target(self.left_friction_bias*self.speed, rad_to_deg(req_l_wheel_rot), wait=False)
-    self.rm.run_target(self.left_turn_bias*self.speed, rad_to_deg(req_r_wheel_rot))
-  def turn_right(self, rad):
-    self.turn_left(-rad)
+    arc_left_bias = req_l_wheel_rot/req_r_wheel_rot
+    if arc_left_bias <= 1.0:
+      self.lm.run_target(self.left_friction_bias*self.speed*arc_left_bias, rad_to_deg(req_l_wheel_rot), wait=False)
+      self.rm.run_target(self.left_turn_bias*self.speed, rad_to_deg(req_r_wheel_rot))
+    else:
+      self.lm.run_target(self.left_friction_bias*self.speed, rad_to_deg(req_l_wheel_rot), wait=False)
+      self.rm.run_target(self.left_turn_bias*self.speed/arc_left_bias, rad_to_deg(req_r_wheel_rot))
+  def turn_right(self, rad, arc_radius):
+    self.turn_left(-rad, arc_radius)
   def move_forward(self, dist):
     if dist == 0: return
     
@@ -78,27 +84,7 @@ wheel_wiggle_bias = 0.0005
 speed = 90.0
 robot = Robot(left_wheel_radius, left_friction_bias, left_turn_bias, axle_radius, wheel_wiggle_bias, speed) # calibrated for speed=90
 
-ev3.speaker.beep()
-robot.move_forward(1*FT)
-ev3.speaker.beep()
-
-time.sleep(5)
-
-ev3.speaker.beep()
-robot.turn_right(15*PI)
-ev3.speaker.beep()
-
-time.sleep(5)
-
-ev3.speaker.beep()
-robot.move_forward(1*FT)
-ev3.speaker.beep()
-
-time.sleep(5)
-
-ev3.speaker.beep()
-robot.turn_left(15*PI)
-ev3.speaker.beep()
+robot.turn_left(PI/2, 1*FT)
 
 
   
