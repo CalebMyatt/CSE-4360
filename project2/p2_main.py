@@ -190,11 +190,12 @@ class Robot:
 
 class Solver:
   def solve(robot):
-    Solver.align_all(robot)
+    Solver.align_init(robot)
     Solver.find_fire(robot)
     robot.alert("There is a fire. Please put it out.")
 
-  def align_all(robot: Robot, rotations=3):
+  # tile related ==============================================================
+  def align_init(robot: Robot, rotations=3):
     robot.align_back()
 
     for i in range(rotations):
@@ -203,13 +204,15 @@ class Solver:
       robot.turn_optimal(right_left * PI/2)
       robot.wait_for_motors()
       robot.align_back()
+  
   def realign(robot: Robot, distances, threshold = .4*FT):
     misalignments = map(lambda dist: dist<threshold, distances)
     for (i, too_close) in enumerate(misalignments):
       if too_close:
-        robot.turn_optimal(i * PI/2 + PI) # turn away
+        direction = i * PI/2 + PI
+        robot.turn_optimal(direction) # turn away
         robot.align_back()
-        robot.turn_optimal(i * PI/2) # turn back
+        robot.turn_optimal(-direction) # turn back
     
     if any(misalignments):
       return Solver.realign(robot, robot.observe_around())
@@ -225,25 +228,7 @@ class Solver:
     walls = relative_walls[shift:] + relative_walls[:shift]  # north, east, south, west
     return Tile(*walls)
   
-  def visit_next_tile(robot: Robot, map, location, facing, depth_limit=25):
-    # iterative deepening search
-    depth = 1
-    actions = None
-    while actions == None:
-      if depth == depth_limit: # if no solution found
-        map.clear() # delete map
-        depth = 0
-        robot.alert("No fire found, looking again.")
-
-      actions, location, facing = Solver.find_next_tile(map, location, facing, depth, {})
-      depth += 1
-
-    # executing route
-    for (action, params) in actions:
-      action(robot, *params)
-      robot.wait_for_motors(lambda: not robot.sees_color(Color.BLACK))
-
-    return (location, facing)
+  # pathfinding related =======================================================
   def find_next_tile_direction(rotation, facing, map, location, depth, tested):
     x = location[0]
     y = location[1]
@@ -280,6 +265,25 @@ class Solver:
         return (actions, location, facing)
 
     return (None, None, None)
+  def visit_next_tile(robot: Robot, map, location, facing, depth_limit=25):
+    # iterative deepening search
+    depth = 1
+    actions = None
+    while actions == None:
+      if depth == depth_limit: # if no solution found
+        map.clear() # delete map
+        depth = 0
+        robot.alert("No fire found, looking again.")
+
+      actions, location, facing = Solver.find_next_tile(map, location, facing, depth, {})
+      depth += 1
+
+    # executing route
+    for (action, params) in actions:
+      action(robot, *params)
+      robot.wait_for_motors(lambda: not robot.sees_color(Color.BLACK))
+
+    return (location, facing)
 
   def find_fire(robot: Robot):
     location = (0,0)
@@ -290,7 +294,7 @@ class Solver:
       map[location] = Solver.get_tile(robot, facing)
       location, facing = Solver.visit_next_tile(map, location, facing)
   
-# ===============
+# main ========================================================================
 def main():
   # TODO change all units to degrees and milimeters
 
