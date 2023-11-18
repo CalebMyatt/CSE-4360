@@ -7,8 +7,6 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 
-import time
-
 PI = 3.1415926535897932384626
 FT = 0.3048
 M = 1.0
@@ -97,6 +95,12 @@ class Robot:
       self.rm.run_target(self.right_speed/arc_left_bias, rad_to_deg(req_r_wheel_rot), wait=False)
   def turn_right(self, rad=PI/2, arc_radius=0):
     self.turn_left(-rad, -arc_radius)
+  def turn_optimal(self, rad, arc_radius=0):
+    rad = (rad+PI)%(2*PI)-PI
+    if rad > 0:
+      self.turn_left(rad, arc_radius)
+    else:
+      self.turn_right(-rad, arc_radius)
   def move_forward(self, dist=1*FT):
     if dist == 0: return
     
@@ -121,187 +125,175 @@ class Robot:
   def look_forward(self):
     self.look_left(0)
 
-  def wait_for_motors(self, stop_fn=lambda:False, params=()):
-    while not self.lm.control.done() or not self.rm.control.done() or not self.cm.control.done():
-      if stop_fn(*params):
-        self.lm.brake()
-        self.rm.brake()
-        self.cm.brake()
+  def wait_for_motors(self, motors=[], stop_fn=lambda:False, params=()):
+    if len(motors) == 0:
+      motors = [self.lm, self.cm, self.rm]
+
+    while any(map(lambda x: not x.control.done(), motors)): # while any motor is running
+      if stop_fn(*params): # if stopping condition, stop
+        for motor in motors:
+          motor.brake()
         return
+      wait(20) # aka 50Hz. not needed much
+      
   # sensors ===================================================================
-  def on_fire(self):
-    if self.color_sensor.color() == Color.WHITE:
-      return False
-    return True
-  def no_fire(self):
-    return not self.on_fire()
+  def sees_color(self, color):
+    if self.color_sensor.color() == color:
+      return True
+    return False
+  
+  def observe_left(self, rad=PI/2):
+    self.look_left(rad)
+    self.wait_for_motors()
+    return millimeters_to_meters(self.ultrasonic_sensor.distance())
+  def observe_right(self, rad=PI/2):
+    self.look_right(rad)
+    self.wait_for_motors()
+    return millimeters_to_meters(self.ultrasonic_sensor.distance())
+  def observe_forward(self):
+    self.look_forward()
+    self.wait_for_motors()
+    return millimeters_to_meters(self.ultrasonic_sensor.distance())
+  def observe_around(self):
+    r_dist = self.observe_right()
+    self.turn_left()
+    l_dist = self.observe_forward()
+    b_dist = self.observe_left()
+    self.turn_right()
+    f_dist = self.observe_forward()
+
+    self.look_right() # prepare for next call
+
+    return (f_dist, l_dist, b_dist, r_dist)
   # speaking ==================================================================
   def alert(self, message="Alert"):
     ev3 = EV3Brick()
     ev3.speaker.say(message)
   # utility functions =========================================================
-  def align_all(self):
-    self.align_back()
-
-    self.turn_left()
-    self.wait_for_motors()
-
-    self.align_back()
-
-    self.turn_right()
-    self.wait_for_motors()
-
-    self.align_back()
-  def align_back(self):
+  def align_back(self, rear_calibration=.075*M):
     self.look_right()
 
     while not self.ls.pressed() or not self.rs.pressed():
       if self.ls.pressed():
-        self.lm.hold()
+        self.lm.stop()
       else:
         self.lm.run(-self.left_speed)
 
       if self.rs.pressed():
-        self.rm.hold()
+        self.rm.stop()
       else:
         self.rm.run(-self.right_speed)
-    self.rm.hold()
-    self.lm.hold()
 
     self.look_forward()
-    self.move_forward(.5*FT-.075*M)
+    self.move_forward(.5*FT-rear_calibration)
     self.wait_for_motors()
+
+class Solver:
+  def solve(robot):
+    Solver.align_all(robot)
+    Solver.find_fire(robot)
+    robot.alert("There is a fire. Please put it out.")
+
+  def align_all(robot: Robot, rotations=3):
+    robot.align_back()
+
+    for i in range(rotations):
+      right_left = (2*i)%2-1
+
+      robot.turn_optimal(right_left * PI/2)
+      robot.wait_for_motors()
+      robot.align_back()
+  def realign(robot: Robot, distances, threshold = .4*FT):
+    misalignments = map(lambda dist: dist<threshold, distances)
+    for (i, too_close) in enumerate(misalignments):
+      if too_close:
+        robot.turn_optimal(i * PI/2 + PI) # turn away
+        robot.align_back()
+        robot.turn_optimal(i * PI/2) # turn back
+    
+    if any(misalignments):
+      return Solver.realign(robot, robot.observe_around())
+    else:
+      return distances
+  def get_tile(robot: Robot, facing: float, threshold=.7*FT):
+    distances = robot.observe_around()
+    distances = Solver.realign(robot, distances) # realigns if needed
+
+    relative_walls = list(map(lambda dist: dist < threshold, distances))
+
+    shift = int(-facing/(PI/2)) % 4
+    walls = relative_walls[shift:] + relative_walls[:shift]  # north, east, south, west
+    return Tile(*walls)
   
-  def look_around(self, realign_threshold=.3*FT):
-    self.look_left()
-    self.wait_for_motors()
-    l_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
-    if l_dist <= realign_threshold:
-      self.turn_right()
-      self.wait_for_motors()
-      self.align_back()
-      self.turn_left()
-      self.wait_for_motors()
-      return self.look_around()
-
-    self.look_right()
-    self.wait_for_motors()
-    r_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
-    if r_dist <= realign_threshold:
-      self.turn_left()
-      self.wait_for_motors()
-      self.align_back()
-      self.turn_right()
-      self.wait_for_motors()
-      return self.look_around()
-
-    self.look_forward()
-    self.wait_for_motors()
-    f_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
-    if f_dist <= realign_threshold-millimeters_to_meters(67):
-      self.turn_left(PI)
-      self.wait_for_motors()
-      self.align_back()
-      self.turn_right(PI)
-      self.wait_for_motors()
-      return self.look_around()
-
-    return (l_dist, f_dist, r_dist)
-  def get_walls(self, facing, behind=True, threshold=.7*FT):
-    l = []
-    for dist in self.look_around():
-      if dist < threshold:
-        l.append(True)
-      else:
-        l.append(False)
-
-    l += [behind] # left, forward, right, back
-    n,e,s,w = l[(facing+1)%4:] + l[:(facing+1)%4]  # north, east, south, west
-    return Tile(n,w,s,e)
-  
-  def reset_map(map, location):
-    for tile in map.values():
-      tile.visited = False
-    map[location].visited = True
-  def go_to_nearest_unvisited_tile(self, map, location, facing, limit=10):
+  def visit_next_tile(robot: Robot, map, location, facing, depth_limit=25):
+    # iterative deepening search
     depth = 1
-    result = None
-    while result == None:
-      if depth == limit:
-        Robot.reset_map(map, location)
+    actions = None
+    while actions == None:
+      if depth == depth_limit: # if no solution found
+        map.clear() # delete map
         depth = 0
+        robot.alert("No fire found, looking again.")
 
-      result = self.find_nearest_unvisited_tile(map, location, facing, depth, [])
-
+      actions, location, facing = Solver.find_next_tile(map, location, facing, depth, {})
       depth += 1
 
-    for action in result[0]:
-      action(self)
-      self.wait_for_motors(lambda: not self.no_fire())
+    # executing route
+    for (action, params) in actions:
+      action(robot, *params)
+      robot.wait_for_motors(lambda: not robot.sees_color(Color.BLACK))
 
-    return (result[1], result[2])
-  def find_nearest_unvisited_tile(self, map, location, facing, depth, tested):
-    if location in tested: # if visited before
-      return None
-    elif depth <= 0: # return no result
-      return None
-    
-    if not location in map.keys(): # found unknown
-      return ([],location,facing)
-    elif not map[location].visited: # found unvisited tile
-      return ([],location,facing)
-    tested += [location]
-
+    return (location, facing)
+  def find_next_tile_direction(rotation, facing, map, location, depth, tested):
     x = location[0]
     y = location[1]
-
-    # forward
-    rotation = facing
-    if not map[location].walls[rotation%4]:
+  
+    if not map[location].walls[rotation%4]: # if no wall in the way
       x_diff, y_diff = direction_to_cartesion(rotation)
-      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
-      if result != None:
-        return ([Robot.move_forward] + result[0], result[1], result[2])
-      
-    # left
-    rotation = facing+1
-    if not map[location].walls[rotation%4]:
-      x_diff, y_diff = direction_to_cartesion(rotation)
-      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
-      if result != None:
-        return ([Robot.turn_left, Robot.move_forward] + result[0], result[1], result[2])
+      depth = depth-abs(int((facing-rotation)/(PI/2)))
 
-    # right
-    rotation = facing-1
-    if not map[location].walls[rotation%4]:
-      x_diff, y_diff = direction_to_cartesion(rotation)
-      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
-      if result != None:
-        return ([Robot.turn_right, Robot.move_forward] + result[0], result[1], result[2])
+      actions, location, facing = Solver.find_next_tile(map, (x+x_diff, y+y_diff), facing+rotation, depth, tested)
+      if actions != None: # if solution found
+        return ([(Robot.turn_optimal,(rotation)), (Robot.move_forward,())] + actions, location, facing)
+    return (None, None, None)
+  def find_next_tile(map, location, facing, depth, tested):
+    if depth <= 0: # return no result
+      return (None, None, None)
+    
+    if location in tested.keys(): # if visited...
+      prev_depth = tested[location]
+      if prev_depth < depth: # ...with lower depth before
+        return (None, None, None)
+      else:
+        tested[location] = depth
+    tested.update({location: depth})
+    
+    if not location in map.keys(): # found undiscovered node. return route
+      return ([],location,facing)
+    elif not map[location].visited: # found unvisited tile. return route
+      return ([],location,facing)
 
-    # back
-    rotation = facing+2
-    if not map[location].walls[rotation%4]:
-      x_diff, y_diff = direction_to_cartesion(rotation)
-      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
-      if result != None:
-        return ([Robot.turn_left, Robot.turn_left, Robot.move_forward] + result[0], result[1], result[2])
+    # test all four directions
+    for i in range(4):
+      actions, location, facing = Solver.find_next_tile_direction(i*PI/2, facing, map, location, depth, tested)
+      if actions != None:
+        return (actions, location, facing)
 
-    return None
+    return (None, None, None)
 
-  def find_fire(self):
+  def find_fire(robot: Robot):
     location = (0,0)
-    facing = 0
+    facing = 0.0
     map = {}
 
-    behind = True # there is a wall behind us initally
-    while self.no_fire():
-      map[location] = self.get_walls(facing, behind)
-      location, facing = self.go_to_nearest_unvisited_tile(map, location, facing)
-      behind = False
-
+    while robot.sees_color(Color.BLACK):
+      map[location] = Solver.get_tile(robot, facing)
+      location, facing = Solver.visit_next_tile(map, location, facing)
+  
 # ===============
 def main():
+  # TODO change all units to degrees and milimeters
+
   left_wheel_radius = 0.040095
   left_friction_bias = 1.0000 # inteded to calibrate differences between L/R motor friction. Higher value => left wheel turns faster over same distance
   left_turn_bias = 0.995 # intended to calibrate to move straight. Higher value => turns left more
@@ -317,10 +309,7 @@ def main():
                 speed, 
                 look_limit) # calibrated for speed=90
   
-  robot.align_all()
-  robot.find_fire()
-  robot.alert("There is a fire. Please put it out.")
-
+  Solver.solve(robot)
 
 if __name__ == '__main__':
   main()
