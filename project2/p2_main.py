@@ -8,8 +8,6 @@ from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 
 import time
-import sys
-from math import sqrt
 
 PI = 3.1415926535897932384626
 FT = 0.3048
@@ -19,28 +17,57 @@ def deg_to_rad(deg):
   return deg*PI/180
 def rad_to_deg(rad):
   return rad*180/PI
+
 def feet_to_meters(feet):
   return feet*FT
 def meters_to_feet(meters):
   return meters/FT
+def millimeters_to_meters(millimeters):
+  return millimeters/1000
 
+def direction_to_cartesion(direction):
+  if direction%4==0:
+    return (0,1)
+  if direction%4==1:
+    return (1,0)
+  if direction%4==2:
+    return (0,-1)
+  if direction%4==3:
+    return (-1,0)
+
+class Tile:
+  def __init__(self, north=False, west=False, south=False, east=False):
+    self.walls = [north, west, south, east]
+
+    self.visited = True
+  
+  def __str__(self):
+    north = self.walls[0]
+    west = self.walls[1]
+    south = self.walls[2]
+    east = self.walls[3]
+    return 'n:'+str(north)+' w:'+str(west)+' s:'+str(south)+' e:'+str(east)
+  def __repr__(self):
+    return self.__str__()
 
 class Robot:
   def __init__(self, left_wheel_radius, left_friction_bias, left_turn_bias, axle_radius, wheel_wiggle_bias, speed, look_limit):
-    self.speed = speed
-    self.left_turn_bias = left_turn_bias
-    self.left_friction_bias = left_friction_bias
-    self.wheel_wiggle_bias = wheel_wiggle_bias
+    self.left_speed = left_friction_bias*speed
+    self.right_speed = left_turn_bias*speed
+    self.center_speed = speed
+    # self.wheel_wiggle_bias = wheel_wiggle_bias
 
-    # left wheel
+    # left side
     self.lwr = left_wheel_radius
     self.lwc = 2*PI*self.lwr
     self.lm = Motor(Port.B, Direction.COUNTERCLOCKWISE, [8,24,40]) # left motor
+    self.ls = TouchSensor(Port.S1)
 
-    # right wheel
-    self.rwr = left_wheel_radius/(self.left_turn_bias)
+    # right side
+    self.rwr = left_wheel_radius/(left_turn_bias)
     self.rwc = 2*PI*self.rwr
     self.rm = Motor(Port.C, Direction.COUNTERCLOCKWISE, [8,24,40]) # right motor
+    self.rs = TouchSensor(Port.S2)
 
     # axle
     self.xr = axle_radius
@@ -49,10 +76,10 @@ class Robot:
     # looking
     self.look_limit = look_limit
     self.cm = Motor(Port.D, Direction.CLOCKWISE, [8,40]) # center motor
-    self.ultrasonic_sensor = UltrasonicSensor(Port.S2)
-    # self.color_sensor = ColorSensor(Port.S1)
+    self.ultrasonic_sensor = UltrasonicSensor(Port.S4)
+    self.color_sensor = ColorSensor(Port.S3)
 
-  # motor functions. Units: rad, meter
+  # motor functions. Units: rad, meter ========================================
   def turn_left(self, rad=PI/2, arc_radius=0):
     req_l_axle_rot = rad*(arc_radius-self.xr) # arclength of inner circle
     req_r_axle_rot = rad*(arc_radius+self.xr) # arclength of outer circle
@@ -63,11 +90,11 @@ class Robot:
     self.rm.reset_angle(0)
     arc_left_bias = req_l_wheel_rot/req_r_wheel_rot
     if arc_left_bias <= 1.0:  # left motor runs slower
-      self.lm.run_target(self.left_friction_bias*self.speed*arc_left_bias, rad_to_deg(req_l_wheel_rot), wait=False)
-      self.rm.run_target(self.left_turn_bias*self.speed, rad_to_deg(req_r_wheel_rot), wait=False)
+      self.lm.run_target(self.left_speed*arc_left_bias, rad_to_deg(req_l_wheel_rot), wait=False)
+      self.rm.run_target(self.right_speed, rad_to_deg(req_r_wheel_rot), wait=False)
     else: # right motor runs slower
-      self.lm.run_target(self.left_friction_bias*self.speed, rad_to_deg(req_l_wheel_rot), wait=False)
-      self.rm.run_target(self.left_turn_bias*self.speed/arc_left_bias, rad_to_deg(req_r_wheel_rot), wait=False)
+      self.lm.run_target(self.left_speed, rad_to_deg(req_l_wheel_rot), wait=False)
+      self.rm.run_target(self.right_speed/arc_left_bias, rad_to_deg(req_r_wheel_rot), wait=False)
   def turn_right(self, rad=PI/2, arc_radius=0):
     self.turn_left(-rad, -arc_radius)
   def move_forward(self, dist=1*FT):
@@ -78,11 +105,11 @@ class Robot:
 
     self.lm.reset_angle(0)
     self.rm.reset_angle(0)
-    self.lm.run_target(self.left_friction_bias*self.speed, rad_to_deg(req_l_wheel_rot), wait=False)
-    self.rm.run_target(self.left_turn_bias*self.speed, rad_to_deg(req_r_wheel_rot), wait=False)
+    self.lm.run_target(self.left_speed, rad_to_deg(req_l_wheel_rot), wait=False)
+    self.rm.run_target(self.right_speed, rad_to_deg(req_r_wheel_rot), wait=False)
 
   def look_left(self, rad=PI/2, sensing=False):
-    speed = self.speed
+    speed = self.center_speed
     if sensing:
       speed /= 5
 
@@ -94,93 +121,191 @@ class Robot:
   def look_forward(self):
     self.look_left(0)
 
-  def wait_for_motors(self):
+  def wait_for_motors(self, stop_fn=lambda:False, params=()):
     while not self.lm.control.done() or not self.rm.control.done() or not self.cm.control.done():
-      pass
-  # utility functions
-  def look_sweep(self):
-    # this is a simple implementation, but this function is very important.
-    # TODO: do multiple sweaps and get the average of multiple. Left->right and right->left.
-    # TODO: check for outlying data.
-    self.look_left()
+      if stop_fn(*params):
+        self.lm.brake()
+        self.rm.brake()
+        self.cm.brake()
+        return
+  # sensors ===================================================================
+  def on_fire(self):
+    if self.color_sensor.color() == Color.WHITE:
+      return False
+    return True
+  def no_fire(self):
+    return not self.on_fire()
+  # speaking ==================================================================
+  def alert(self, message="Alert"):
+    ev3 = EV3Brick()
+    ev3.speaker.say(message)
+  # utility functions =========================================================
+  def align_all(self):
+    self.align_back()
+
+    self.turn_left()
     self.wait_for_motors()
-    self.look_right(sensing=True)
 
-    thetas = [self.cm.angle()]
-    dists = [self.ultrasonic_sensor.distance()]
-    
-    while not self.cm.control.done():
-      prev_dist = dists[-1]
-      new_dist = self.ultrasonic_sensor.distance()
-      if prev_dist != new_dist:
-        new_theta = deg_to_rad(self.cm.angle())
-        thetas.append(new_theta)
-        dists.append(new_dist)
-        print(new_theta, new_dist)
+    self.align_back()
 
-    return (thetas, dists)
-  def recenter(self):
+    self.turn_right()
+    self.wait_for_motors()
+
+    self.align_back()
+  def align_back(self):
+    self.look_right()
+
+    while not self.ls.pressed() or not self.rs.pressed():
+      if self.ls.pressed():
+        self.lm.hold()
+      else:
+        self.lm.run(-self.left_speed)
+
+      if self.rs.pressed():
+        self.rm.hold()
+      else:
+        self.rm.run(-self.right_speed)
+    self.rm.hold()
+    self.lm.hold()
+
     self.look_forward()
+    self.move_forward(.5*FT-.075*M)
     self.wait_for_motors()
   
-  def turn_to_closest(self):
-    (thetas, dists) = self.look_sweep()
-    min_dist = min(dists)
-    theta = thetas[dists.index(min_dist)]
-    print(theta, min_dist)
-
-    self.turn_left(theta)
+  def look_around(self, realign_threshold=.3*FT):
+    self.look_left()
     self.wait_for_motors()
-  def turn_to_furthest(self):
-    (thetas, dists) = self.look_sweep()
-    max_dist = max(dists)
-    theta = thetas[dists.index(max_dist)]
-    print(theta, max_dist)
+    l_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
+    if l_dist <= realign_threshold:
+      self.turn_right()
+      self.wait_for_motors()
+      self.align_back()
+      self.turn_left()
+      self.wait_for_motors()
+      return self.look_around()
 
-    self.turn_left(theta)
+    self.look_right()
     self.wait_for_motors()
+    r_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
+    if r_dist <= realign_threshold:
+      self.turn_left()
+      self.wait_for_motors()
+      self.align_back()
+      self.turn_right()
+      self.wait_for_motors()
+      return self.look_around()
 
+    self.look_forward()
+    self.wait_for_motors()
+    f_dist = millimeters_to_meters(self.ultrasonic_sensor.distance())
+    if f_dist <= realign_threshold-millimeters_to_meters(67):
+      self.turn_left(PI)
+      self.wait_for_motors()
+      self.align_back()
+      self.turn_right(PI)
+      self.wait_for_motors()
+      return self.look_around()
 
-  # test functions
-  def test(self):
-    self.move_test()
-    self.look_test()
-  def move_test(self):
-    ev3 = EV3Brick()
-    ev3.speaker.say("Initializing movement test")
-    ev3.speaker.say("Make sure the robot is aligned")
-    time.sleep(3)
-    ev3.speaker.say("Starting")
+    return (l_dist, f_dist, r_dist)
+  def get_walls(self, facing, behind=True, threshold=.7*FT):
+    l = []
+    for dist in self.look_around():
+      if dist < threshold:
+        l.append(True)
+      else:
+        l.append(False)
 
-    for i in range(4):
-      for j in range(4):
-        self.move_forward(1*FT)
-        self.turn_left(PI/2)
-      for j in range(4):
-        self.move_forward(1*FT)
-        self.turn_right(PI/2)
+    l += [behind] # left, forward, right, back
+    n,e,s,w = l[(facing+1)%4:] + l[:(facing+1)%4]  # north, east, south, west
+    return Tile(n,w,s,e)
+  
+  def reset_map(map, location):
+    for tile in map.values():
+      tile.visited = False
+    map[location].visited = True
+  def go_to_nearest_unvisited_tile(self, map, location, facing, limit=10):
+    depth = 1
+    result = None
+    while result == None:
+      if depth == limit:
+        Robot.reset_map(map, location)
+        depth = 0
 
-    ev3.speaker.say("Complete")
-  def look_test(self):
-    ev3 = EV3Brick()
-    ev3.speaker.say("Initializing viewing test")
-    ev3.speaker.say("Make sure the sensor assembaly is centered")
-    time.sleep(3)
-    ev3.speaker.say("Starting")
+      result = self.find_nearest_unvisited_tile(map, location, facing, depth, [])
 
-    for i in range(4):
-      self.look_right()
-      self.look_forward()
-      self.look_left()
-      self.look_forward()
+      depth += 1
+
+    for action in result[0]:
+      action(self)
+      self.wait_for_motors(lambda: not self.no_fire())
+
+    return (result[1], result[2])
+  def find_nearest_unvisited_tile(self, map, location, facing, depth, tested):
+    if location in tested: # if visited before
+      return None
+    elif depth <= 0: # return no result
+      return None
     
-    ev3.speaker.say("Complete")
+    if not location in map.keys(): # found unknown
+      return ([],location,facing)
+    elif not map[location].visited: # found unvisited tile
+      return ([],location,facing)
+    tested += [location]
+
+    x = location[0]
+    y = location[1]
+
+    # forward
+    rotation = facing
+    if not map[location].walls[rotation%4]:
+      x_diff, y_diff = direction_to_cartesion(rotation)
+      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
+      if result != None:
+        return ([Robot.move_forward] + result[0], result[1], result[2])
+      
+    # left
+    rotation = facing+1
+    if not map[location].walls[rotation%4]:
+      x_diff, y_diff = direction_to_cartesion(rotation)
+      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
+      if result != None:
+        return ([Robot.turn_left, Robot.move_forward] + result[0], result[1], result[2])
+
+    # right
+    rotation = facing-1
+    if not map[location].walls[rotation%4]:
+      x_diff, y_diff = direction_to_cartesion(rotation)
+      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
+      if result != None:
+        return ([Robot.turn_right, Robot.move_forward] + result[0], result[1], result[2])
+
+    # back
+    rotation = facing+2
+    if not map[location].walls[rotation%4]:
+      x_diff, y_diff = direction_to_cartesion(rotation)
+      result = self.find_nearest_unvisited_tile(map, (x+x_diff, y+y_diff), rotation, depth-abs(facing-rotation), tested)
+      if result != None:
+        return ([Robot.turn_left, Robot.turn_left, Robot.move_forward] + result[0], result[1], result[2])
+
+    return None
+
+  def find_fire(self):
+    location = (0,0)
+    facing = 0
+    map = {}
+
+    behind = True # there is a wall behind us initally
+    while self.no_fire():
+      map[location] = self.get_walls(facing, behind)
+      location, facing = self.go_to_nearest_unvisited_tile(map, location, facing)
+      behind = False
+
 # ===============
 def main():
   left_wheel_radius = 0.040095
-  left_friction_bias = 1.0 # inteded to calibrate differences between L/R motor friction
-  left_turn_bias = 1.0037 # intended to calibrate to move straight
-  axle_radius = 0.062
+  left_friction_bias = 1.0000 # inteded to calibrate differences between L/R motor friction. Higher value => left wheel turns faster over same distance
+  left_turn_bias = 0.995 # intended to calibrate to move straight. Higher value => turns left more
+  axle_radius = 0.0635
   wheel_wiggle_bias = 0.0005 # inteded to calibrate for the lack of movement between forward and backward motions (TODO NOT IMPLEMENTED)
   speed = 90.0
   look_limit = PI/2 # don't change this unless the default values for look functions are set to this value somehow
@@ -191,9 +316,11 @@ def main():
                 wheel_wiggle_bias, 
                 speed, 
                 look_limit) # calibrated for speed=90
+  
+  robot.align_all()
+  robot.find_fire()
+  robot.alert("There is a fire. Please put it out.")
 
-  robot.turn_to_closest()
-  robot.recenter()
 
 if __name__ == '__main__':
   main()
