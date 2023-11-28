@@ -134,7 +134,7 @@ class Robot:
         return
   # sensors ===================================================================
   def on_fire(self):
-    if self.color_sensor.color() == Color.WHITE:
+    if self.color_sensor.color() == Color.GREEN:
       return True
     return False
   def no_fire(self):
@@ -148,18 +148,18 @@ class Robot:
     self.align_back()
 
     self.turn_left()
-    self.wait_for_motors()
+    self.wait_for_motors(lambda: not self.no_fire())
 
     self.align_back()
 
     self.turn_right()
-    self.wait_for_motors()
+    self.wait_for_motors(lambda: not self.no_fire())
 
     self.align_back()
   def align_back(self):
     self.look_right()
 
-    while not self.ls.pressed() or not self.rs.pressed():
+    while (not self.ls.pressed() or not self.rs.pressed()) and self.no_fire():
       if self.ls.pressed():
         self.lm.hold()
       else:
@@ -175,7 +175,7 @@ class Robot:
 
     self.look_forward()
     self.move_forward(.5*FT-.075*M)
-    self.wait_for_motors()
+    self.wait_for_motors(lambda: not self.no_fire())
   
   def look_around(self, realign_threshold=.3*FT):
     self.look_left()
@@ -297,13 +297,21 @@ class Robot:
 
     return None
 
-  def find_fire(self):
+  def find_fire(self, increments=10):
     location = (0,0)
     facing = 0
     map = {}
-
     behind = True # there is a wall behind us initally
+
     while self.no_fire():
+      if len(map) >= increments:
+        self.alert('realigning')
+        self.align_all()
+        location = (0,0)
+        facing = 0
+        map.clear()
+        behind = True
+
       map[location] = self.get_walls(facing, behind)
       behind = False
 
