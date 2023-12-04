@@ -38,7 +38,7 @@ class Robot:
     self.rotate_all(57.5)
     self.top.reset_angle(180)
     self.bottom.reset_angle(180)
-    self.bottom.run_target(self.SPEED, 180-45 ,Stop.HOLD, True)
+    #self.bottom.run_target(self.SPEED, self.bottom ,Stop.HOLD, True)
     #   time ms
     #self.top.run_target(self.SPEED, (self.top.angle() + 25), Stop.HOLD, True)  
     #self.bottom.run_target(self.SPEED, (self.bottom.angle() - 25), Stop.HOLD, True) 
@@ -125,6 +125,6 @@ robot.resetPosition()
 print(robot.get_x_y())
 print(robot.get_angle())
 robot.move_to(0, 100)
-#robot.move_to(100, 100)
+robot.move_to(100, 100)
 
 #print(robot.reset_position())
