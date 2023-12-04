@@ -105,7 +105,7 @@ class Robot:
   
   def get_x_y(self):
     #Top is theta2 and bot is theta1
-    theta2 , theta1 = deg_to_rad((self.top.angle(), self.bottom.angle()))
+    theta2 , theta1 = (deg_to_rad(self.top.angle()), deg_to_rad(self.bottom.angle())) 
     return (-self.length *(math.cos(theta2)- math.cos(theta1)),-self.length *(math.sin(theta2)- math.sin(theta1)))
   
   def get_angle(self):
@@ -124,7 +124,7 @@ robot = Robot(90)
 robot.resetPosition()
 print(robot.get_x_y())
 print(robot.get_angle())
-#robot.move_to(0, 100)
+robot.move_to(0, 100)
 #robot.move_to(100, 100)
 
 #print(robot.reset_position())
