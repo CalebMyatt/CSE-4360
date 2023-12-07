@@ -45,7 +45,7 @@ def deg_to_rad(deg):
 def rad_to_deg(rad):
   return rad*180/PI
 def abs_distance(location):
-  return location[0]**2 + location[1]**2
+  return math.sqrt(location[0]**2 + location[1]**2)
 
 class Robot:
   #Description: Create self plus gets a speed
@@ -64,9 +64,11 @@ class Robot:
     # How close do we move per second(Higher number equals slower movement)
     self.steps = 5
     #How close do we have to be in mm(Millimeters) 
-    self.precision = .1
+    self.precision = .5
     #How many seconds per velocity
-    self.time_per_move = 100
+    self.time_per_move = .1
+    # limit how fast we can move
+    self.limit = 150
   
     #Sets motor
     self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
@@ -77,7 +79,8 @@ class Robot:
   #Returns: Top angle     (Theta 2)
   #         Bottom angle  (Theta 1)
   def get_angle(self):
-    return deg_to_rad(self.top.angle())%(2*PI), deg_to_rad(self.bottom.angle())%(2*PI)
+    return deg_to_rad(self.bottom.angle())%(2*PI), deg_to_rad(self.top.angle())%(2*PI)
+
 
   #Description: Resets position to (0,0)
   #Args:    None
@@ -136,7 +139,9 @@ class Robot:
   #Returns: Boolean value
   def safe_position(self,x,y):
     # Checks if (x,y) is out of range
-    if math.sqrt(x**2+y**2) >= (2*self.length - self.safety_distance):
+    if abs_distance((x,y)) >= (2*self.length - self.safety_distance):
+      self.bottom.brake()
+      self.top.brake()
       return False
     # Checks if (x,y) leaves our painting zone
     elif x < 0 or y < 0:
@@ -168,21 +173,35 @@ class Robot:
     # p1 is current and p2 to end goal
     while (True):
       p1 = self.get_x_y()
-      theta2,theta1 = self.get_angle()
-      if (abs_distance(p2)-abs_distance(p1) < self.precision):
+      
+      theta1,theta2 = self.get_angle()
+      if (abs_distance(p2)- abs_distance(p1) < self.precision):
         break
       distance_x = (p1[0]-p2[0])/self.steps
       distance_y = (p1[1]-p2[1])/self.steps
+      print(p1)
 
-      velocity_1 = - (distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))#/self.length
-      velocity_2 = - (distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))#/self.length
+      velocity_1 = -(distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
+      velocity_2 = -(distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
 
-      print("vel1:", velocity_1)
-      print("vel2:", velocity_2)
+      move_top_motor  = rad_to_deg(velocity_1) * self.SPEED
+      move_bottom_motor = rad_to_deg(velocity_2) * self.SPEED
 
-      self.bottom.run_time((velocity_1),self.time_per_move, Stop.BRAKE,False)
-      self.top.run_time((velocity_2),self.time_per_move, Stop.BRAKE,False)
-   
+
+
+      print("vel1:", move_bottom_motor)
+      print("vel2:", move_top_motor)
+
+
+      if(move_bottom_motor > self.limit or move_top_motor > self.limit):
+        print("TO FAST")
+        return
+
+      #self.bottom.run_time((velocity_1),self.time_per_move, Stop.COAST,False)
+      #self.top.run_time((velocity_2),self.time_per_move, Stop.COAST,False)
+      self.bottom.run(move_bottom_motor)
+      self.top.run(move_top_motor)
+      time.sleep(self.time_per_move)
     
  
   #Description: Makes motor wait
