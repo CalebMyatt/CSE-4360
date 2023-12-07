@@ -65,6 +65,8 @@ class Robot:
     self.steps = 5
     #How close do we have to be in mm(Millimeters) 
     self.precision = .05
+    #How many seconds per velocity
+    self.time_per_move = 2
   
     #Sets motor
     self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
@@ -167,20 +169,19 @@ class Robot:
     # p1 is current and p2 to end goal
     while (True):
       p1 = self.get_x_y()
+      theta2,theta1 = self.get_angle()
       if (abs_distance(p2)-abs_distance(p1) < self.precision):
         break
       distance_x = (p1[0]-p2[0])/self.steps
       distance_y = (p1[1]-p2[1])/self.steps
-      
-      
-      
-        
-    
-    
-    
-    
- 
-    
+
+      velocity_1 = - (distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
+      velocity_2 = - (distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
+
+
+      self.bottom.run_time(rad_to_deg(velocity_1),self.time_per_move, Stop.BRAKE,False)
+      self.top.run_time(rad_to_deg(velocity_2),self.time_per_move, Stop.BRAKE,True)
+   
     
  
   #Description: Makes motor wait
@@ -193,14 +194,12 @@ class Robot:
         self.bottom.brake()
     return
   
-
-  
-  #Description: Return current angle as a tuple
+  #Description: Return current angle as a tuple (Radians, Module to 2*PI )
   #Args:    None
   #Returns: Top angle     (Theta 2)
   #         Bottom angle  (Theta 1)
   def get_angle(self):
-    return self.top.angle(), self.bottom.angle()
+    return deg_to_rad(self.top.angle())%(2*PI), deg_to_rad(self.bottom.angle())%(2*PI)
 
 
 class Problem:
@@ -222,7 +221,7 @@ print(robot.get_angle())
 
 #Moving
 robot.move_to(0, 100)
-robot.move_to(100, 100)
+#robot.move_to(100, 100)
 
 
 
