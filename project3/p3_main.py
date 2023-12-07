@@ -61,8 +61,8 @@ class Robot:
     self.length = 112
     #self.safety_distance is in mm(Millimeters) 
     self.safety_distance = 0
-    # How close do we move per second (This is a bit strange but lets keep it at this. Simulation ) 
-    self.steps_per_second = 0.001
+    # How close do we move per second(Higher number equals slower movement)
+    self.steps = 5
     #How close do we have to be in mm(Millimeters) 
     self.precision = .05
   
@@ -142,7 +142,16 @@ class Robot:
     elif x < 0 or y < 0:
       return False
     return True
-      
+  
+  
+  #Description: Gets current (x,y) location
+  #Args:    None
+  #Returns: X Location
+  #         Y: Location
+  def get_x_y(self):
+    #Top is theta2 and bot is theta1
+    theta2 , theta1 = (deg_to_rad(self.top.angle()), deg_to_rad(self.bottom.angle())) 
+    return (-self.length *(math.cos(theta2)- math.cos(theta1)),-self.length *(math.sin(theta2)- math.sin(theta1)))
     
   #Description: Moves to a location descpried in (x,y)
   #Args:    X location
@@ -160,6 +169,10 @@ class Robot:
       p1 = self.get_x_y()
       if (abs_distance(p2)-abs_distance(p1) < self.precision):
         break
+      distance_x = (p1[0]-p2[0])/self.steps
+      distance_y = (p1[1]-p2[1])/self.steps
+      
+      
       
         
     
@@ -180,14 +193,7 @@ class Robot:
         self.bottom.brake()
     return
   
-  #Description: Gets current (x,y) location
-  #Args:    None
-  #Returns: X Location
-  #         Y: Location
-  def get_x_y(self):
-    #Top is theta2 and bot is theta1
-    theta2 , theta1 = (deg_to_rad(self.top.angle()), deg_to_rad(self.bottom.angle())) 
-    return (-self.length *(math.cos(theta2)- math.cos(theta1)),-self.length *(math.sin(theta2)- math.sin(theta1)))
+
   
   #Description: Return current angle as a tuple
   #Args:    None
