@@ -1,4 +1,7 @@
-#!/usr/bin/env pybricks-micropython
+# README
+# desmos sim at https://www.desmos.com/calculator/uz68isf59x
+# MicroPython docs at https://pybricks.com/ev3-micropython/
+# =============================================================================
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
                                  InfraredSensor, UltrasonicSensor, GyroSensor)
@@ -23,7 +26,7 @@ class Robot:
     def __init__(self):
         self.tm = Motor(Port.A, Direction.COUNTERCLOCKWISE) # top motor
         self.bm = Motor(Port.C, Direction.COUNTERCLOCKWISE) # bottom motor
-        self.hm = Motor(Port.C, Direction.COUNTERCLOCKWISE) # hand motor
+        self.hm = Motor(Port.D, Direction.COUNTERCLOCKWISE) # hand motor
 
         self.L = 69
         self.V = 69
@@ -108,6 +111,8 @@ class Polygon:
         for pos in self.verticies:
             yield pos
         yield self.verticies[0]
+    def __getitem__(self, i):
+        return [iter(self)][i]
 # =============================================================================
 def test():
     # test polygons
