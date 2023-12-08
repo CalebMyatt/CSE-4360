@@ -62,13 +62,13 @@ class Robot:
     #self.safety_distance is in mm(Millimeters) 
     self.safety_distance = 0
     # How close do we move per second(Higher number equals slower movement)
-    self.steps = 5
+    self.steps = 20
     #How close do we have to be in mm(Millimeters) 
     self.precision = .5
     #How many seconds per velocity
     self.time_per_move = .1
     # limit how fast we can move
-    self.limit = 150
+    self.limit = 360
   
     #Sets motor
     self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
@@ -189,8 +189,8 @@ class Robot:
 
 
 
-      print("vel1:", move_bottom_motor)
-      print("vel2:", move_top_motor)
+      #print("vel1:", move_bottom_motor)
+      #print("vel2:", move_top_motor)
 
 
       if(move_bottom_motor > self.limit or move_top_motor > self.limit):
@@ -247,7 +247,13 @@ print(robot.get_x_y())
 print(robot.get_angle())
 
 #Moving
-robot.move_to(5, 100)
+robot.move_to(50, 50)
+
+print(robot.get_x_y)
+time.sleep(5)
+
+robot.move_to(0, 100)
+
 #robot.move_to(100, 100)
 
 
