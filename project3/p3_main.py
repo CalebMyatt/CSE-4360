@@ -58,13 +58,13 @@ class Robot:
     #Adjustable in coding
     #NOTE: we could just make all of these args
     #self.length is in mm(Millimeters) 
-    self.length = 112
+    self.length = 110
     #self.safety_distance is in mm(Millimeters) 
     self.safety_distance = 0
     # How close do we move per second(Higher number equals slower movement)
     self.steps = 20
     #How close do we have to be in mm(Millimeters) 
-    self.precision = .5
+    self.precision = 1
     #How many seconds per velocity
     self.time_per_move = .1
     # limit how fast we can move
@@ -175,7 +175,9 @@ class Robot:
       p1 = self.get_x_y()
       
       theta1,theta2 = self.get_angle()
-      if (abs_distance(p2)- abs_distance(p1) < self.precision):
+      if ( abs(abs_distance(p2) - abs_distance(p1)) < self.precision):
+        self.bottom.brake()
+        self.top.brake()
         break
       distance_x = (p1[0]-p2[0])/self.steps
       distance_y = (p1[1]-p2[1])/self.steps
@@ -247,12 +249,17 @@ print(robot.get_x_y())
 print(robot.get_angle())
 
 #Moving
-robot.move_to(50, 50)
-
-print(robot.get_x_y)
+robot.move_to(0, 200)
 time.sleep(5)
 
 robot.move_to(0, 100)
+
+time.sleep(5)
+
+
+robot.move_to(50, 50)
+
+
 
 #robot.move_to(100, 100)
 
