@@ -58,21 +58,24 @@ class Robot:
     #Adjustable in coding
     #NOTE: we could just make all of these args
     #self.length is in mm(Millimeters) 
-    self.length = 110
+    self.length = 112
     #self.safety_distance is in mm(Millimeters) 
     self.safety_distance = 0
     # How close do we move per second(Higher number equals slower movement)
-    self.steps = 20
+    self.steps = 25
     #How close do we have to be in mm(Millimeters) 
     self.precision = 2
     #How fast we change the velocity
     self.time_per_move = .01
     # limit how fast we can move
     self.limit = 360
+    #How many degrees to move the pen
+    self.pen_offset = -50
   
     #Sets motor
     self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
     self.bottom = Motor(Port.D, Direction.COUNTERCLOCKWISE)
+    self.pen = Motor(Port.B,Direction.COUNTERCLOCKWISE)
     
   #Description: Return current angle as a tuple (Radians, Module to 2*PI )
   #Args:    None
@@ -86,12 +89,17 @@ class Robot:
   #Args:    None
   #Returns: None
   def resetPosition(self):
+    self.pen.run_until_stalled(self.SPEED,Stop.BRAKE,None)
+    self.pen.reset_angle(0)
+    self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+
+
     self.bottom.run_until_stalled(self.SPEED, Stop.BRAKE, None)
     self.top.hold()
     self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
     self.bottom.hold()
     self.top.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-    self.rotate_all(57.5)
+    self.rotate_all(55)
     self.top.reset_angle(180)
     self.bottom.reset_angle(178)
    
@@ -216,6 +224,14 @@ class Robot:
         self.bottom.brake()
     return
   
+  def ready_pen(self,ready):
+    if ready:
+      self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+    else:
+      self.pen.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
+
+
+
 
 
 #Description: Class for the problem we are solving for.
@@ -237,11 +253,12 @@ class Problem:
   def get_points(self):
     return self.points
   
-
     
 # ===============
 #Sets speed
 robot = Robot(90)
+robot.ready_pen(False)
+#robot.ready_pen(True)
 
 #Reset Position
 robot.resetPosition()
@@ -255,14 +272,5 @@ time.sleep(5)
 robot.move_to(0, 100)
 
 time.sleep(5)
+robot.move_to(100, 100)
 
-
-robot.move_to(50, 50)
-
-
-
-#robot.move_to(100, 100)
-
-
-
-#print(robot.reset_position())
