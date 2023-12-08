@@ -7,282 +7,134 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 
-import time
-import sys
-import math
-
-    #self.top.run_target(self.SPEED, (self.top.angle() + 25), Stop.HOLD, True)  
-    #self.bottom.run_target(self.SPEED, (self.bottom.angle() - 25), Stop.HOLD, True) 
-    #self.bottom.run_target(self.SPEED, -160, Stop.HOLD, True)
-
-    #      C   
-    #     / \
-    #    /   \
-    #   /     \
-    #  B       D
-    #   \     / \
-    #    \   /   \
-    #     \ /     \
-    #      A       E
-
-    #   origin(0,0)
-    #   Reset/Calibrate position - Both motors turn towards each other to straighten arm, 
-    #       -then both motors turn counter clockwise until unable
-    #   Go to Origin of grid - get angle in memory function motor.angle, bottom left of grid is 0,0
-    #   Array of vectors which creates shape, (x,y)
-    #   Create points using bezier curve
-    #   Marker move up and down function
-    #   Move to first point, start drawing
-    #   Once back at first point, go to sleep
-
-#Local Pi value
-PI = 3.1415926535897932384626
-
-#Helper Functions
-#------------------------------------
-def deg_to_rad(deg):
-  return deg*PI/180
-def rad_to_deg(rad):
-  return rad*180/PI
-def abs_distance(location):
-  return math.sqrt(location[0]**2 + location[1]**2)
-
+from math import pi, cos, sin, radians, degrees, dist
+# =============================================================================
 class Robot:
-  #Description: Create self plus gets a speed
-  #Args:    Speed
-  #Returns: Robot Class
-  def __init__(self, speed):
-    #Argus
-    self.SPEED = speed # 1.0 is the standard speed
+    def reset(self):
+        self.tm.run_until_stalled()
+        self.tm.reset_angle(180)
 
-    #Adjustable in coding
-    #NOTE: we could just make all of these args
-    #self.length is in mm(Millimeters) 
-    self.length = 112
-    #self.safety_distance is in mm(Millimeters) 
-    self.safety_distance = 0
-    # How close do we move per second(Higher number equals slower movement)
-    self.steps = 25
-    #How close do we have to be in mm(Millimeters) 
-    self.precision = 2
-    #How fast we change the velocity
-    self.time_per_move = .1
-    # limit how fast we can move
-    self.limit = 360
-    #How many degrees to move the pen
-    self.pen_offset = -60
-  
-    #Sets motor
-    self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
-    self.bottom = Motor(Port.D, Direction.COUNTERCLOCKWISE)
-    self.pen = Motor(Port.B,Direction.COUNTERCLOCKWISE)
+        self.bm.run_until_stalled()
+        self.bm.reset_angle(180)
+
+        self.hm.run_until_stalled()
+        self.hm.reset_angle(0)
+
+    def __init__(self):
+        self.tm = Motor(Port.A, Direction.COUNTERCLOCKWISE) # top motor
+        self.bm = Motor(Port.C, Direction.COUNTERCLOCKWISE) # bottom motor
+        self.hm = Motor(Port.C, Direction.COUNTERCLOCKWISE) # hand motor
+
+        self.L = 69
+        self.V = 69
+
+        self.reset()
+
+    def cur_thetas(self):
+        t1 = radians(self.tm.angle())
+        t2 = radians(self.bm.angle())
+        return t1, t2
+    def cur_pos(self):
+        t1, t2 = self.cur_thetas()
+        L = self.L
+        x = -L*(cos(t2)-cos(t1))
+        y = -L*(sin(t2)-sin(t1))
+        return x, y
+    def dist_to(self, pos):
+        x1, y1 = self.cur_pos()
+        x2, y2 = pos
+        dx = x1-x2
+        dy = y1-y2
+        return dx, dy
+    def verify_point(self, pos):
+        L = self.L
+        if dist(*pos) > 2*L:
+            raise ValueError(f'point {pos} is too far away')
+
+    def move_to(self, pos, d_thr=69):
+        V, L = self.V, self.L
+        self.verify_point(pos)
+
+        while True:
+            dx, dy = self.dist_to(pos)
+            if dist(dx, dy) < d_thr:
+                return
+            t1, t2 = self.cur_thetas()
+            v1 = -V*(cos(t2)*dx+sin(t2)*dy)/L
+            v2 = -V*(cos(t1)*dx+sin(t1)*dy)/L
+            self.tm.run(degrees(v1))
+            self.bm.run(degrees(v2))
+            wait(10)
+    def draw_polygon(self, poly, off):
+        poly.translate(off)
+        for point in poly:
+            self.verify_point(point)
+
+        self.move_to(poly[0])
+        self.start_drawing()
+        for point in poly[1:]:
+            self.move_to(point)
+        self.stop_drawing()
+        self.reset()
+
+    def start_drawing(self):
+        self.hm.run_target(90)
+    def stop_drawing(self):
+        self.hm.run_target(0)
+# =============================================================================
+class Polygon:
+    def __init__(self, points):
+        if len(points) == 0:
+            raise ValueError('polygon must have at least one vertex')
+        self.verticies = points
     
-  #Description: Return current angle as a tuple (Radians, Module to 2*PI )
-  #Args:    None
-  #Returns: Top angle     (Theta 2)
-  #         Bottom angle  (Theta 1)
-  def get_angle(self):
-    return deg_to_rad(self.bottom.angle())%(2*PI), deg_to_rad(self.top.angle())%(2*PI)
+    def circle(pos, radius, num_verts=100):
+        cx = pos[0]
+        cy = pos[1]
 
+        points = []
+        for step in range(num_verts):
+            theta = 2*pi * (step/num_verts)
+            x = cx + radius*cos(theta)
+            y = cy + radius*sin(theta)
+            points.append((x,y))
 
-  #Description: Resets position to (0,0)
-  #Args:    None
-  #Returns: None
-  def resetPosition(self):
-    self.pen.run_until_stalled(self.SPEED,Stop.BRAKE,None)
-    self.pen.reset_angle(0)
-    self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+        return Polygon(points)
 
+    def translate(self, off):
+        dx, dy = off
+        self.verticies = [(x+dx, y+dy) for x, y in self.verticies]
+    def __iter__(self):
+        for pos in self.verticies:
+            yield pos
+        yield self.verticies[0]
+# =============================================================================
+def test():
+    # test polygons
 
-    self.bottom.run_until_stalled(self.SPEED, Stop.BRAKE, None)
-    self.top.hold()
-    self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-    self.bottom.hold()
-    self.top.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-    self.rotate_all(55)
-    self.top.reset_angle(180)
-    self.bottom.reset_angle(178)
-   
+    # test robot initialization
+    # test start_drawing
+    # calibrate L
+    # test cur pos
+    # test move_to
+    # calibrate V
+    # test draw_polygon
+
+    # general code cleanup and compactness
+
+    pass
+def main():
+    rob = Robot()
+    poly = Polygon([(0,0),
+                    (0,0),
+                    (0,0),
+                    (0,0),
+                    (0,0),
+                    (0,0),
+                    (0,0),])
     
-  #Description: Rotate the entire robot
-  #Args:    None
-  #Returns: None
-  def rotate_all(self,deg):
-    self.top.run_target(self.SPEED, (self.top.angle() + deg), Stop.HOLD, False)  
-    self.bottom.run_target(self.SPEED, (self.bottom.angle() + deg), Stop.HOLD, True)
+    rob.draw_polygon(poly)
     
-  
-  #Description: Moves the motors to an X and Y location(Old way)
-  #Args:    Go to X location
-  #         Go to Y location
-  #Returns: None
-  def move_to_old(self, x, y):
-    #print("Start Location: ",xPrime, yPrime)
-    #print("Start angle:",self.top.angle(), self.bottom.angle())
-    #print("b:",b)
-    #print("gamma",gamma)
-    #beta =  rad_to_deg(math.acos(1-((b**2)/(2*self.length**2))))
-    #Gets angle of Beta and Alpha
-    #print(1-(b**2/(2*self.length**2)))
-    #print("beta",beta,"alpha",alpha)
-    #print("theta1", theta1, "\ntheta2", theta2)
-    #self.wait_motor()
-    #print("end location",self.get_x_y())
-    #self.bottom.run_target(self.SPEED, theta1, Stop.HOLD, True)
-    
-    xPrime,yPrime = self.get_x_y()
-    b = math.sqrt(((x - xPrime)**2) + ((y-yPrime)**2))
-    gamma = rad_to_deg(math.asin(((y-yPrime)/b)))
-    beta = rad_to_deg(math.acos(1-(b**2/(2*self.length**2))))
-    alpha = (180 - beta)/2
-    theta1 = alpha + gamma
-    theta2 = theta1 + beta
-    self.bottom.run_target(self.SPEED, theta1, Stop.HOLD,False ) 
-    self.top.run_target(self.SPEED, theta2, Stop.HOLD,True ) 
-    
-    
-  #Description: Checks if given (x,y) is safe to move to
-  #Args:    X location
-  #         Y location
-  #Returns: Boolean value
-  def safe_position(self,x,y):
-    # Checks if (x,y) is out of range
-    print(abs_distance((x,y)))
-    if abs_distance((x,y)) >= (2*self.length - self.safety_distance):
-      self.bottom.brake()
-      self.top.brake()
-      return False
-    # Checks if (x,y) leaves our painting zone
-    #elif x < 0 or y < 0:
-    #  print("Below 0")
-    #  return False
-    return True
-  
-  
-  #Description: Gets current (x,y) location
-  #Args:    None
-  #Returns: X Location
-  #         Y: Location
-  def get_x_y(self):
-    #Top is theta2 and bot is theta1
-    theta2 , theta1 = (deg_to_rad(self.top.angle()), deg_to_rad(self.bottom.angle())) 
-    return (-self.length *(math.cos(theta2)- math.cos(theta1)),-self.length *(math.sin(theta2)- math.sin(theta1)))
-    
-  #Description: Moves to a location descpried in (x,y)
-  #Args:    X location
-  #         Y location
-  #Returns: None 
-  def move_to(self, x, y):
-    p2 = x,y
-    
-    if self.safe_position(x,y) == False:
-      print("UNSAFE POSITION")
-      return 
-    
-    # p1 is current and p2 to end goal
-    while (True):
-      p1 = self.get_x_y()
-      
-      theta1,theta2 = self.get_angle()
-      if ( abs_distance((p2[0]-p1[0],(p2[1]-p1[1]))) < self.precision):
-        self.bottom.brake()
-        self.top.brake()
-        break
-      distance_x = (p1[0]-p2[0])/self.steps
-      distance_y = (p1[1]-p2[1])/self.steps
-      print(p1)
-
-      velocity_1 = -(distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
-      velocity_2 = -(distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
-
-      move_top_motor  = rad_to_deg(velocity_1) * self.SPEED
-      move_bottom_motor = rad_to_deg(velocity_2) * self.SPEED
-
-
-
-      #print("vel1:", move_bottom_motor)
-      #print("vel2:", move_top_motor)
-
-
-      if(move_bottom_motor > self.limit or move_top_motor > self.limit):
-        print("TO FAST")
-        return
-
-      #self.bottom.run_time((velocity_1),self.time_per_move, Stop.COAST,False)
-      #self.top.run_time((velocity_2),self.time_per_move, Stop.COAST,False)
-      self.bottom.run(move_bottom_motor)
-      self.top.run(move_top_motor)
-      time.sleep(self.time_per_move)
-    
- 
-  #Description: Makes motor wait
-  #Args:    (Ask Landon :3)
-  #Returns: None
-  def wait_motor(self, stop_fn=lambda:False, params=()):
-    while not self.top.control.done() or not self.bottom.control.done():
-      if stop_fn(*params):
-        self.top.brake()
-        self.bottom.brake()
-    return
-  
-  def ready_pen(self,ready):
-    if ready:
-      self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
-    else:
-      self.pen.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
-
-
-
-
-
-#Description: Class for the problem we are solving for.
-#Args:    Self
-#         origin: Where the middle of the circle will be
-#         radius: how big of a circle
-#         number_of_points: how many vertex should we have, we need 3 atleast
-#Returns: None
-class Problem:
-  def __init__(self, origin, radius, number_of_points):
-    self.origin = origin # (x, y, rads from +x)
-    self.radius = radius # (x,y)
-    self.number_of_points = number_of_points # (x_size, y_size)
-    self.points = []
-    for x in range(number_of_points):
-      percentage_of_circle = x/number_of_points
-      new_point = self.radius * math.cos(2*PI*percentage_of_circle) + self.origin[0] , self.radius *math.sin(2*PI*percentage_of_circle)+ self.origin[1]
-      self.points.append(new_point)
-
-  #Description: Gives you the points for the problem you want to solve
-  #Args:    Self
-  #Returns: An array of points, floats
-  def get_points(self):
-    print(self.points)
-    return self.points
-  
-    
-# ===============
-#Sets speed
-robot = Robot(90)
-robot.ready_pen(False)
-#robot.ready_pen(True)
-
-#Reset Position
-robot.resetPosition()
-print(robot.get_x_y())
-print(robot.get_angle())
-
-#Moving
-
-#Origin of Paper
-#robot.move_to(-60,60)
-#Middle of Paper
-#robot.move_to(80,100)
-
-#  def __init__(self, origin, radius, number_of_points):
-
-problem = Problem((80,100),30, 3)
-print(problem.get_points())
-#points = []
-for x in problem.get_points():
-  robot.move_to(x[0],x[1])
-  robot.wait_motor()
+if __name__ == '__main__':
+    # main()
+    test()
