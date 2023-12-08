@@ -64,9 +64,9 @@ class Robot:
     # How close do we move per second(Higher number equals slower movement)
     self.steps = 20
     #How close do we have to be in mm(Millimeters) 
-    self.precision = 1
-    #How many seconds per velocity
-    self.time_per_move = .1
+    self.precision = 2
+    #How fast we change the velocity
+    self.time_per_move = .01
     # limit how fast we can move
     self.limit = 360
   
@@ -175,7 +175,7 @@ class Robot:
       p1 = self.get_x_y()
       
       theta1,theta2 = self.get_angle()
-      if ( abs(abs_distance(p2) - abs_distance(p1)) < self.precision):
+      if ( abs_distance((p2[0]-p1[0],(p2[1]-p1[1]))) < self.precision):
         self.bottom.brake()
         self.top.brake()
         break
