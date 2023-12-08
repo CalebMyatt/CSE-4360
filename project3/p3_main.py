@@ -66,11 +66,11 @@ class Robot:
     #How close do we have to be in mm(Millimeters) 
     self.precision = 2
     #How fast we change the velocity
-    self.time_per_move = .01
+    self.time_per_move = .1
     # limit how fast we can move
     self.limit = 360
     #How many degrees to move the pen
-    self.pen_offset = -50
+    self.pen_offset = -60
   
     #Sets motor
     self.top = Motor(Port.C, Direction.COUNTERCLOCKWISE)
@@ -147,14 +147,15 @@ class Robot:
   #Returns: Boolean value
   def safe_position(self,x,y):
     # Checks if (x,y) is out of range
+    print(abs_distance((x,y)))
     if abs_distance((x,y)) >= (2*self.length - self.safety_distance):
       self.bottom.brake()
       self.top.brake()
       return False
     # Checks if (x,y) leaves our painting zone
-    elif x < 0 or y < 0:
-      print("Below 0")
-      return False
+    #elif x < 0 or y < 0:
+    #  print("Below 0")
+    #  return False
     return True
   
   
@@ -238,7 +239,7 @@ class Robot:
 #Args:    Self
 #         origin: Where the middle of the circle will be
 #         radius: how big of a circle
-#         number_of_points: howmany vertex should we have
+#         number_of_points: how many vertex should we have, we need 3 atleast
 #Returns: None
 class Problem:
   def __init__(self, origin, radius, number_of_points):
@@ -248,10 +249,12 @@ class Problem:
     self.points = []
     for x in range(number_of_points):
       percentage_of_circle = x/number_of_points
-      new_point = math.cos(2*PI*percentage_of_circle) + self.origin[0] , math.sin(2*PI*percentage_of_circle)+ self.origin[1]
-      self.points.append()
+      new_point = self.radius * math.cos(2*PI*percentage_of_circle) + self.origin[0] , self.radius *math.sin(2*PI*percentage_of_circle)+ self.origin[1]
+      self.points.append(new_point)
+
   def get_points(self):
-    return self.points
+    print(self.points)
+    #return self.points
   
     
 # ===============
@@ -266,11 +269,13 @@ print(robot.get_x_y())
 print(robot.get_angle())
 
 #Moving
-robot.move_to(0, 200)
-time.sleep(5)
 
-robot.move_to(0, 100)
+#Origin of Paper
+#robot.move_to(-60,60)
+#Middle of Paper
+#robot.move_to(80,100)
 
-time.sleep(5)
-robot.move_to(100, 100)
+#  def __init__(self, origin, radius, number_of_points):
 
+problem = Problem((80,100),30, 3)
+problem.get_points()
