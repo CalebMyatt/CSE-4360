@@ -252,9 +252,12 @@ class Problem:
       new_point = self.radius * math.cos(2*PI*percentage_of_circle) + self.origin[0] , self.radius *math.sin(2*PI*percentage_of_circle)+ self.origin[1]
       self.points.append(new_point)
 
+  #Description: Gives you the points for the problem you want to solve
+  #Args:    Self
+  #Returns: An array of points, floats
   def get_points(self):
     print(self.points)
-    #return self.points
+    return self.points
   
     
 # ===============
@@ -278,4 +281,8 @@ print(robot.get_angle())
 #  def __init__(self, origin, radius, number_of_points):
 
 problem = Problem((80,100),30, 3)
-problem.get_points()
+print(problem.get_points())
+#points = []
+for x in problem.get_points():
+  robot.move_to(x[0],x[1])
+  robot.wait_motor()
