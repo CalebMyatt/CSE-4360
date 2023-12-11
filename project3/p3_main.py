@@ -35,6 +35,10 @@ import math
     #   Move to first point, start drawing
     #   Once back at first point, go to sleep
 
+   # time:      ms
+   # Distance:  mm
+   # Speed:     mm/s
+
 #Local Pi value
 PI = 3.1415926535897932384626
 
@@ -84,7 +88,7 @@ class Robot:
     self.top.reset_angle(180)
     self.bottom.reset_angle(180)
     
-    #   time ms
+ 
 
     
     
