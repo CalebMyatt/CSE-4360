@@ -66,11 +66,11 @@ class Robot:
     #self.safety_distance is in mm(Millimeters) 
     self.safety_distance = 0
     # How close do we move per second(Higher number equals slower movement)
-    self.steps = 25
+    self.progress = .01
     #How close do we have to be in mm(Millimeters) 
     self.precision = 2
     #How fast we change the velocity
-    self.time_per_move = .1
+    self.time_per_move = 10
     # limit how fast we can move
     self.limit = 360
     #How many degrees to move the pen
@@ -92,31 +92,13 @@ class Robot:
   #Description: Resets position to (0,0)
   #Args:    None
   #Returns: None
-  def resetPosition_old(self):
-    #Get the "painting" motor to 0
-    self.pen.run_until_stalled(self.SPEED,Stop.BRAKE,None)
-    self.pen.reset_angle(0)
-    self.pen.run_target(self.SPEED, self.pen_offset*2, then=Stop.BRAKE, wait=True)
-
-    
-    self.bottom.run_until_stalled(self.SPEED, Stop.BRAKE, None)
-    self.top.hold()
-    self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-    self.bottom.hold()
-    self.top.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-    self.rotate_all(55)
-    self.top.reset_angle(180)
-    self.bottom.reset_angle(178)
-    self.bottom.run_target(self.SPEED,90,then=Stop.BRAKE, wait=True)
-
   def resetPosition(self):
     
-    self.bottom.run_until_stalled(self.SPEED, Stop.HOLD, None)
-    self.top.hold()
-    self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
-
+    self.top.run_until_stalled(self.SPEED, Stop.HOLD, None)
     self.top.reset_angle(330)
-    self.bottom.reset_angle(130)
+    self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
+    self.bottom.reset_angle(135)
+
     self.top.run_target(-self.SPEED,180,Stop.HOLD,True)
     self.bottom.run_target(-self.SPEED,90,Stop.HOLD,True)
 
@@ -179,32 +161,25 @@ class Robot:
         self.bottom.brake()
         self.top.brake()
         break
-      distance_x = (p1[0]-p2[0])/self.steps
-      distance_y = (p1[1]-p2[1])/self.steps
+      distance_x = (p1[0]-p2[0])
+      distance_y = (p1[1]-p2[1])
 
-      velocity_1 = -(distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
-      velocity_2 = -(distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
+      velocity_1 = -self.progress * (distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
+      velocity_2 = -self.progress * (distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
 
       move_top_motor  = rad_to_deg(velocity_1) * self.SPEED
       move_bottom_motor = rad_to_deg(velocity_2) * self.SPEED
-
-
-
       #print("vel1:", move_bottom_motor)
       #print("vel2:", move_top_motor)
-
 
       if(move_bottom_motor > self.limit or move_top_motor > self.limit):
         print("TO FAST")
         return
-
-      #self.bottom.run_time((velocity_1),self.time_per_move, Stop.COAST,False)
-      #self.top.run_time((velocity_2),self.time_per_move, Stop.COAST,False)
       self.bottom.run(move_bottom_motor)
       self.top.run(move_top_motor) 
+      time.sleep(self.time_per_move)
 
-      #time.sleep(self.time_per_move)
-    #print(self.get_x_y())
+    print(self.get_x_y())
  
   #Description: Makes motor wait
   #Args:    stop_fn take in a function
@@ -222,9 +197,15 @@ class Robot:
       print("ready")
       self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
     else:
-      self.pen.run_target(self.SPEED, self.pen_offset*2, then=Stop.BRAKE, wait=True)
+      self.pen.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
 
-
+  #For testing use only
+  def go_limp(self):
+    robot.bottom.stop()
+    robot.top.stop()
+    while(True):
+      print(robot.get_x_y())
+      wait(1000)
 
 
 
@@ -257,22 +238,24 @@ class Problem:
   def solve_problem(self,robot):
     end = (self.get_points())[-1]
     robot.ready_pen(False)
+    print(end[0],end[1])
+
     robot.move_to(end[0],end[1])
     robot.ready_pen(True)
-    for point in problem.get_points():
+    for point in self.get_points():
       robot.move_to(point[0],point[1])
       robot.wait_motor()
     #robot.move_to(start[0],start[1])
     #robot.wait_motor()
   
-  def solve_problem_outside_points(self,robot,points):
+  '''def solve_problem_outside_points(self,robot,points):
     end = (points)[-1]
     robot.ready_pen(False)
-    robot.move_to(end[0],end[1])
+    robot.move_to(end)
     robot.ready_pen(True)
     for point in points():
       robot.move_to(point[0],point[1])
-      robot.wait_motor()
+      robot.wait_motor()'''
     #robot.move_to(start[0],start[1]) 
     #robot.wait_motor()
 
@@ -281,27 +264,29 @@ class Problem:
 # ===============
 #Sets speed
 robot = Robot(90)
-robot.ready_pen(False)
+#robot.ready_pen(False)
 
 #Reset Position
 robot.resetPosition()
 print(robot.get_x_y())
 print(robot.get_angle())
 
+
+
 #Moving
 
 #Origin of Paper
 #robot.move_to(-60,60)
 #Middle of Paper
-#robot.move_to(80,100)
+#robot.move_to(47,70)
 
 #  def __init__(self, origin, radius, number_of_points):
 
-#problem = Problem((80,100),30, 4)
+problem = Problem((70,70),20, 4)
 
-#print(problem.get_points())
+print(problem.get_points())
 #points = []
 #robot.ready_pen(True)
-#problem.solve_problem(robot)
+problem.solve_problem(robot)
 #robot.ready_pen(False)
 
