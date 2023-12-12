@@ -38,11 +38,9 @@ class Robot:
         self.hm = Motor(Port.B, Direction.COUNTERCLOCKWISE) # hand motor
 
         self.L = 100
-        self.V = 0.01
+        self.V = 50
 
         self.reset()
-        wait(1000)
-        print(self.cur_thetas())
 
     def cur_thetas(self):
         t1 = radians(self.bm.angle())
@@ -65,20 +63,21 @@ class Robot:
         if dist(*pos) > 2*L:
             raise ValueError('vertex is too far away')
 
-    def move_to(self, pos, d_thr=5):
+    def move_to(self, pos, d_thr=2):
         V, L = self.V, self.L
         self.verify_point(pos)
 
         while True:
             dx, dy = self.dist_to(pos)
-            if dist(dx,dy) < d_thr:
+            d = dist(dx, dy)
+            if d < d_thr:
                 return
             t1, t2 = self.cur_thetas()
-            v1 = -V*(cos(t2)*dx+sin(t2)*dy)/L
-            v2 = -V*(cos(t1)*dx+sin(t1)*dy)/L
-            self.bm.run(degrees(v1)*100)
-            self.tm.run(degrees(v2)*100)
-            wait(10)
+            v1 = -(1/d)*(cos(t2)*dx+sin(t2)*dy)/L
+            v2 = -(1/d)*(cos(t1)*dx+sin(t1)*dy)/L
+            self.bm.run(degrees(v1)*V)
+            self.tm.run(degrees(v2)*V)
+            wait(1)
     def draw_polygon(self, poly, off=(0,0)):
         poly.translate(off)
         for point in poly:
@@ -88,12 +87,11 @@ class Robot:
         self.start_drawing()
 
         for point in poly:
-            print(point)
-            self.move_to(point)
             wait(100)
+            self.move_to(point)
+            print(point, self.cur_pos())
 
         self.stop_drawing()
-        self.reset()
 
     def start_drawing(self):
         self.hm.run_target(180, 90)
@@ -129,7 +127,7 @@ class Polygon:
     def __getitem__(self, i):
         return self.verticies[i]
 # =============================================================================
-def test():
+def main():
     poly = Polygon([(10,10),
                     (140,10),
                     (140,90),
@@ -138,18 +136,12 @@ def test():
     rob = Robot()
     rob.draw_polygon(poly)
 
-def main():
-    rob = Robot()
-    poly = Polygon([(0,0),
-                    (0,0),
-                    (0,0),
-                    (0,0),
-                    (0,0),
-                    (0,0),
-                    (0,0),])
-    
-    rob.draw_polygon(poly, (-22, 93))
+    rob.tm.stop()
+    rob.bm.stop()
+
+    # while True:
+    #     print(rob.cur_pos())
+    #     wait(1000)
     
 if __name__ == '__main__':
-    # main()
-    test()
+    main()
