@@ -18,13 +18,14 @@ def dist(*point):
 # =============================================================================
 class Robot:
     def reset(self):
-        self.tm.run_until_stalled(45)
-        self.tm.reset_angle(335)
-        self.tm.run_target(45,180)
-        self.tm.hold()
+        self.tm.run_until_stalled(45, Stop.HOLD)
+        self.tm.reset_angle(330)
 
-        self.bm.run_until_stalled(45)
-        self.bm.reset_angle(175)
+        self.bm.run_until_stalled(-45, Stop.HOLD)
+        self.bm.reset_angle(330-195)
+
+        self.tm.run_target(45,180, Stop.HOLD)
+        self.bm.run_target(45,90, Stop.HOLD)
 
         self.tm.stop()
         self.bm.stop()
@@ -37,9 +38,11 @@ class Robot:
         self.hm = Motor(Port.B, Direction.COUNTERCLOCKWISE) # hand motor
 
         self.L = 100
-        self.V = 0.1
+        self.V = 0.01
 
         self.reset()
+        wait(1000)
+        print(self.cur_thetas())
 
     def cur_thetas(self):
         t1 = radians(self.bm.angle())
@@ -73,10 +76,10 @@ class Robot:
             t1, t2 = self.cur_thetas()
             v1 = -V*(cos(t2)*dx+sin(t2)*dy)/L
             v2 = -V*(cos(t1)*dx+sin(t1)*dy)/L
-            self.bm.run(degrees(v1)*10)
-            self.tm.run(degrees(v2)*10)
-            wait(100)
-    def draw_polygon(self, poly, off):
+            self.bm.run(degrees(v1)*100)
+            self.tm.run(degrees(v2)*100)
+            wait(10)
+    def draw_polygon(self, poly, off=(0,0)):
         poly.translate(off)
         for point in poly:
             self.verify_point(point)
@@ -127,12 +130,13 @@ class Polygon:
         return self.verticies[i]
 # =============================================================================
 def test():
-    poly = Polygon([(0,0),
-                    (150,0),
-                    (150,100),
-                    (0,100),])
+    poly = Polygon([(10,10),
+                    (140,10),
+                    (140,90),
+                    (10,90),])
+    poly.translate((-17,36))
     rob = Robot()
-    rob.draw_polygon(poly, (-30, 30))
+    rob.draw_polygon(poly)
 
 def main():
     rob = Robot()
