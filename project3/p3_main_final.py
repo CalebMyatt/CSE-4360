@@ -64,10 +64,25 @@ class Robot:
       theta2 , theta1 = (degrees(self.top.angle()), degrees(self.bottom.angle())) 
       return (-self.length *(cos(theta2)- cos(theta1)),-self.length *(sin(theta2)- sin(theta1)))
   
+    def safe_position(self,x,y):
+        if dist((x,y)) >= (2*self.length - self.safety_distance):
+            self.bottom.brake()
+            self.top.brake()
+            return False
+        return True
+    
+    def dist_to(self, pos):
+        x1, y1 = self.cur_pos()
+        x2, y2 = pos
+        dx = x1-x2
+        dy = y1-y2
+        return dx, dy
+
     def move_to(self, pos, d_thr=2):
         V, L = self.V, self.L
-        self.verify_point(pos)
+        self.safe_position(pos)
 
+    
         while True:
             dx, dy = self.dist_to(pos)
             d = dist(dx, dy)
