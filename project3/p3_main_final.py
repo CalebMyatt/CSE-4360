@@ -42,7 +42,6 @@ class Robot:
 
         self.L = 112
         self.V = 50
-
         self.pen_offset = -60
 
 
@@ -94,6 +93,27 @@ class Robot:
             self.bm.run(degrees(v1)*V)
             self.tm.run(degrees(v2)*V)
             wait(1)
+    def draw_polygon(self, poly, off=(0,0)):
+        poly.translate(off)
+        for point in poly:
+            self.safe_position(point)
+
+        self.move_to(poly[0])
+        self.ready_pen(True)
+
+        for point in poly:
+            wait(100)
+            self.move_to(point)
+            print(point, self.get_x_y())
+
+        self.ready_pen(False)
+
+    def ready_pen(self,ready):
+        if ready:
+          print("ready")
+          self.hm.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+        else:
+          self.hm.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
 
 
 # =============================================================================
@@ -109,25 +129,17 @@ class circle_n:
     self.points = []
     for x in range(number_of_points):
       percentage_of_circle = x/number_of_points
-      new_point = self.radius * math.cos(2*PI*percentage_of_circle) + self.origin[0] , self.radius *math.sin(2*PI*percentage_of_circle)+ self.origin[1]
+      new_point = self.radius * cos(2*pi*percentage_of_circle) + self.origin[0] , self.radius * sin(2*pi*percentage_of_circle)+ self.origin[1]
       self.points.append(new_point)
+ 
+  def __iter__(self):
+        for pos in self.points:
+            yield pos
+        yield self.points[0]
+  def __getitem__(self, i):
+        return self.points[i]
 
-  #Description: Gives you the points for the problem you want to solve
-  #Args:    Self
-  #Returns: An array of points, floats
-  def get_points(self):
-    return self.points
-  
-  def solve_problem(self,robot):
-    end = (self.get_points())[-1]
-    robot.ready_pen(False)
-    print(end[0],end[1])
 
-    robot.move_to(end[0],end[1])
-    robot.ready_pen(True)
-    for point in self.get_points():
-      robot.move_to(point[0],point[1])
-      robot.wait_motor()
 
 # =============================================================================
 class Polygon:
@@ -136,19 +148,6 @@ class Polygon:
             raise ValueError('polygon must have at least one vertex')
         self.verticies = points
     
-    def circle(pos, radius, num_verts=100):
-        cx = pos[0]
-        cy = pos[1]
-
-        points = []
-        for step in range(num_verts):
-            theta = 2*pi * (step/num_verts)
-            x = cx + radius*cos(theta)
-            y = cy + radius*sin(theta)
-            points.append((x,y))
-
-        return Polygon(points)
-
     def translate(self, off):
         dx, dy = off
         self.verticies = [(x+dx, y+dy) for x, y in self.verticies]
