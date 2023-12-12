@@ -92,12 +92,13 @@ class Robot:
   #Description: Resets position to (0,0)
   #Args:    None
   #Returns: None
-  def resetPosition(self):
+  def resetPosition_old(self):
+    #Get the "painting" motor to 0
     self.pen.run_until_stalled(self.SPEED,Stop.BRAKE,None)
     self.pen.reset_angle(0)
-    self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+    self.pen.run_target(self.SPEED, self.pen_offset*2, then=Stop.BRAKE, wait=True)
 
-
+    
     self.bottom.run_until_stalled(self.SPEED, Stop.BRAKE, None)
     self.top.hold()
     self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
@@ -106,8 +107,24 @@ class Robot:
     self.rotate_all(55)
     self.top.reset_angle(180)
     self.bottom.reset_angle(178)
-   
+    self.bottom.run_target(self.SPEED,90,then=Stop.BRAKE, wait=True)
+
+  def resetPosition(self):
     
+    self.bottom.run_until_stalled(self.SPEED, Stop.HOLD, None)
+    self.top.hold()
+    self.bottom.run_until_stalled(-self.SPEED, Stop.HOLD, None)
+
+    self.top.reset_angle(330)
+    self.bottom.reset_angle(130)
+    self.top.run_target(-self.SPEED,180,Stop.HOLD,True)
+    self.bottom.run_target(-self.SPEED,90,Stop.HOLD,True)
+
+    #Get the "painting" motor to 0
+    self.pen.run_until_stalled(self.SPEED,Stop.BRAKE,None)
+    self.pen.reset_angle(0)
+
+   
   #Description: Rotate the entire robot
   #Args:    None
   #Returns: None
@@ -115,43 +132,13 @@ class Robot:
     self.top.run_target(self.SPEED, (self.top.angle() + deg), Stop.HOLD, False)  
     self.bottom.run_target(self.SPEED, (self.bottom.angle() + deg), Stop.HOLD, True)
     
-  
-  #Description: Moves the motors to an X and Y location(Old way)
-  #Args:    Go to X location
-  #         Go to Y location
-  #Returns: None
-  def move_to_old(self, x, y):
-    #print("Start Location: ",xPrime, yPrime)
-    #print("Start angle:",self.top.angle(), self.bottom.angle())
-    #print("b:",b)
-    #print("gamma",gamma)
-    #beta =  rad_to_deg(math.acos(1-((b**2)/(2*self.length**2))))
-    #Gets angle of Beta and Alpha
-    #print(1-(b**2/(2*self.length**2)))
-    #print("beta",beta,"alpha",alpha)
-    #print("theta1", theta1, "\ntheta2", theta2)
-    #self.wait_motor()
-    #print("end location",self.get_x_y())
-    #self.bottom.run_target(self.SPEED, theta1, Stop.HOLD, True)
-    
-    xPrime,yPrime = self.get_x_y()
-    b = math.sqrt(((x - xPrime)**2) + ((y-yPrime)**2))
-    gamma = rad_to_deg(math.asin(((y-yPrime)/b)))
-    beta = rad_to_deg(math.acos(1-(b**2/(2*self.length**2))))
-    alpha = (180 - beta)/2
-    theta1 = alpha + gamma
-    theta2 = theta1 + beta
-    self.bottom.run_target(self.SPEED, theta1, Stop.HOLD,False ) 
-    self.top.run_target(self.SPEED, theta2, Stop.HOLD,True ) 
-    
-    
   #Description: Checks if given (x,y) is safe to move to
   #Args:    X location
   #         Y location
   #Returns: Boolean value
   def safe_position(self,x,y):
     # Checks if (x,y) is out of range
-    print(abs_distance((x,y)))
+    #print(abs_distance((x,y)))
     if abs_distance((x,y)) >= (2*self.length - self.safety_distance):
       self.bottom.brake()
       self.top.brake()
@@ -194,7 +181,6 @@ class Robot:
         break
       distance_x = (p1[0]-p2[0])/self.steps
       distance_y = (p1[1]-p2[1])/self.steps
-      print(p1)
 
       velocity_1 = -(distance_x * math.cos(theta1) +  distance_y*math.sin(theta1))/self.length
       velocity_2 = -(distance_x * math.cos(theta2) +  distance_y*math.sin(theta2))/self.length
@@ -215,12 +201,14 @@ class Robot:
       #self.bottom.run_time((velocity_1),self.time_per_move, Stop.COAST,False)
       #self.top.run_time((velocity_2),self.time_per_move, Stop.COAST,False)
       self.bottom.run(move_bottom_motor)
-      self.top.run(move_top_motor)
-      time.sleep(self.time_per_move)
-    
+      self.top.run(move_top_motor) 
+
+      #time.sleep(self.time_per_move)
+    #print(self.get_x_y())
  
   #Description: Makes motor wait
-  #Args:    (Ask Landon :3)
+  #Args:    stop_fn take in a function
+  #         params is the parameters for the function given
   #Returns: None
   def wait_motor(self, stop_fn=lambda:False, params=()):
     while not self.top.control.done() or not self.bottom.control.done():
@@ -231,9 +219,10 @@ class Robot:
   
   def ready_pen(self,ready):
     if ready:
+      print("ready")
       self.pen.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
     else:
-      self.pen.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
+      self.pen.run_target(self.SPEED, self.pen_offset*2, then=Stop.BRAKE, wait=True)
 
 
 
@@ -247,8 +236,11 @@ class Robot:
 #Returns: None
 class Problem:
   def __init__(self, origin, radius, number_of_points):
+    #Selects the origin of the circle
     self.origin = origin # (x, y, rads from +x)
+    #Selects the radius of the circle
     self.radius = radius # (x,y)
+    #Creates the vertex surounding the vertex
     self.number_of_points = number_of_points # (x_size, y_size)
     self.points = []
     for x in range(number_of_points):
@@ -260,15 +252,36 @@ class Problem:
   #Args:    Self
   #Returns: An array of points, floats
   def get_points(self):
-    print(self.points)
     return self.points
+  
+  def solve_problem(self,robot):
+    end = (self.get_points())[-1]
+    robot.ready_pen(False)
+    robot.move_to(end[0],end[1])
+    robot.ready_pen(True)
+    for point in problem.get_points():
+      robot.move_to(point[0],point[1])
+      robot.wait_motor()
+    #robot.move_to(start[0],start[1])
+    #robot.wait_motor()
+  
+  def solve_problem_outside_points(self,robot,points):
+    end = (points)[-1]
+    robot.ready_pen(False)
+    robot.move_to(end[0],end[1])
+    robot.ready_pen(True)
+    for point in points():
+      robot.move_to(point[0],point[1])
+      robot.wait_motor()
+    #robot.move_to(start[0],start[1]) 
+    #robot.wait_motor()
+
   
     
 # ===============
 #Sets speed
 robot = Robot(90)
 robot.ready_pen(False)
-#robot.ready_pen(True)
 
 #Reset Position
 robot.resetPosition()
@@ -284,10 +297,11 @@ print(robot.get_angle())
 
 #  def __init__(self, origin, radius, number_of_points):
 
-problem = Problem((80,100),30, 4)
-print(problem.get_points())
+#problem = Problem((80,100),30, 4)
+
+#print(problem.get_points())
 #points = []
-for x in problem.get_points():
-  robot.move_to(x[0],x[1])
-  robot.wait_motor()
+#robot.ready_pen(True)
+#problem.solve_problem(robot)
+#robot.ready_pen(False)
 
