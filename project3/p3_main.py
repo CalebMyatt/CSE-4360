@@ -137,7 +137,6 @@ class Robot:
   #Returns: X Location
   #         Y: Location
   def get_x_y(self):
-    #Top is theta2 and bot is theta1
     theta2 , theta1 = (deg_to_rad(self.top.angle()), deg_to_rad(self.bottom.angle())) 
     return (-self.length *(math.cos(theta2)- math.cos(theta1)),-self.length *(math.sin(theta2)- math.sin(theta1)))
     
