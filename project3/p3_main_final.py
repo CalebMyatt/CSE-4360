@@ -19,20 +19,21 @@ def dist(*point):
 class Robot:
     
     def reset(self):
-        self.tm.run_until_stalled(45, Stop.HOLD)
+        speed = 45
+        self.tm.run_until_stalled(speed, Stop.HOLD)
         self.tm.reset_angle(330)
 
-        self.bm.run_until_stalled(-45, Stop.HOLD)
+        self.bm.run_until_stalled(-speed, Stop.HOLD)
         self.bm.reset_angle(330-195)
 
-        self.tm.run_target(45,180, Stop.HOLD)
-        self.bm.run_target(45,90, Stop.HOLD)
+        self.tm.run_target(speed,180, Stop.HOLD)
+        self.bm.run_target(speed,90, Stop.HOLD)
 
         self.tm.stop()
         self.bm.stop()
 
         #Create something to adjust pen
-        self.hm.run_until_stalled(self.SPEED,Stop.BRAKE,None)
+        self.hm.run_until_stalled(speed,Stop.BRAKE,None)
         self.hm.reset_angle(0)
 
     def __init__(self):
