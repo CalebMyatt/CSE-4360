@@ -45,11 +45,18 @@ class Robot:
 
         self.L = 112
         self.V = 50
-        self.pen_offset = -80
+        self.pen_offset = -60
 
         self.reset()
 
-    
+      #For testing use only
+    def go_limp(self):
+        self.bm.stop()
+        self.tm.stop()
+        while(True):
+            print(self.get_x_y())
+            wait(1000)
+
     def cur_thetas(self):
         t1 = radians(self.bm.angle())
         t2 = radians(self.tm.angle())
@@ -73,7 +80,7 @@ class Robot:
         dy = y1-y2
         return dx, dy
 
-    def move_to(self, pos, d_thr=2):
+    def move_to(self, pos, d_thr=1.5):
         V, L = self.V, self.L
         self.safe_position(pos)
 
@@ -106,8 +113,8 @@ class Robot:
         for point in poly:
             wait(100)
             self.move_to(point)
-            #print(point, self.get_x_y())
-
+            print(point,self.get_x_y())
+        wait(10000)
         self.ready_pen(False)
 
     def ready_pen(self,ready):
@@ -165,33 +172,23 @@ class Polygon:
         return self.verticies[i]
 # =============================================================================
 def main():
-    poly = Polygon([(10,10),
-                    (140,10),
-                    (140,90),
-                    (10,90),])
-    poly.translate((-17,36))
+    #Current translate
+    translate = (-65,74)
+    poly = Polygon([(0,0),
+                    (150,0),
+                    (150,100),
+                    (0,100)])
+    poly.translate(translate)
     rob = Robot()
-    #print("HAW")
+    #rob.go_limp()
 
-    #rob.draw_polygon(poly)
+    #Test in code
+    #cool_circle_close = circle_n((45,50), 40, 5)
+    #cool_circle_middle = circle_n((80,50), 40, 5)
+    #cool_circle_far = circle_n((105,50), 40, 5)
 
-    cool_circle = circle_n((55,75), 30, 3)
 
-    #triangle = Polygon([(25,10),
-    #                (140,10),
-    #                (140,80),])
-    #triangle.translate((-17,36))
-
-    #Polygon = circle_n((50,75),) 
-    rob.draw_polygon(cool_circle)
-
-    #print("LOL")
-    rob.tm.stop()
-    rob.bm.stop()
-
-    # while True:
-    #     print(rob.cur_pos())
-    #     wait(1000)
+    rob.draw_polygon(poly)
     
 if __name__ == '__main__':
     main()
