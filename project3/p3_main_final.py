@@ -184,11 +184,12 @@ def main():
 
     #Test in code
     #cool_circle_close = circle_n((45,50), 40, 5)
-    #cool_circle_middle = circle_n((80,50), 40, 5)
+    cool_circle_middle = circle_n((80,50), 40, 4)
     #cool_circle_far = circle_n((105,50), 40, 5)
 
+    #rob.draw_polygon(poly)
 
-    rob.draw_polygon(poly)
+    rob.draw_polygon(cool_circle_middle)
     
 if __name__ == '__main__':
     main()
