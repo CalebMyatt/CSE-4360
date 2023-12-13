@@ -26,6 +26,9 @@ class Robot:
         self.bm.run_until_stalled(-speed, Stop.HOLD)
         self.bm.reset_angle(330-195)
 
+        self.hm.run_until_stalled(speed,Stop.BRAKE,None)
+        self.hm.reset_angle(0)
+
         self.tm.run_target(speed,180, Stop.HOLD)
         self.bm.run_target(speed,90, Stop.HOLD)
 
@@ -33,8 +36,7 @@ class Robot:
         self.bm.stop()
 
         #Create something to adjust pen
-        self.hm.run_until_stalled(speed,Stop.BRAKE,None)
-        self.hm.reset_angle(0)
+
 
     def __init__(self):
         self.tm = Motor(Port.C, Direction.COUNTERCLOCKWISE) # top motor
@@ -43,36 +45,29 @@ class Robot:
 
         self.L = 112
         self.V = 50
-        self.pen_offset = -60
-
+        self.pen_offset = -80
 
         self.reset()
 
-    def safe_position(self,x,y):
-      safety_dist = 0
-      if dist((x,y)) >= (2*self.length - safety_dist):
-        self.bottom.brake()
-        self.top.brake()
-        return False
-      return True
     
     def cur_thetas(self):
         t1 = radians(self.bm.angle())
         t2 = radians(self.tm.angle())
         return t1, t2
     def get_x_y(self):
-      theta2 , theta1 = (degrees(self.top.angle()), degrees(self.bottom.angle())) 
-      return (-self.length *(cos(theta2)- cos(theta1)),-self.length *(sin(theta2)- sin(theta1)))
+        t1, t2 = self.cur_thetas()
+        L = self.L
+        x = -L*(cos(t2)-cos(t1))
+        y = -L*(sin(t2)-sin(t1))
+        return x, y
   
-    def safe_position(self,x,y):
-        if dist((x,y)) >= (2*self.length - self.safety_distance):
-            self.bottom.brake()
-            self.top.brake()
-            return False
-        return True
+    def safe_position(self,pos):
+        L = self.L
+        if dist(*pos) > 2*L:
+            raise ValueError('vertex is too far away')
     
     def dist_to(self, pos):
-        x1, y1 = self.cur_pos()
+        x1, y1 = self.get_x_y()
         x2, y2 = pos
         dx = x1-x2
         dy = y1-y2
@@ -87,34 +82,40 @@ class Robot:
             dx, dy = self.dist_to(pos)
             d = dist(dx, dy)
             if d < d_thr:
-                return
+                break
             t1, t2 = self.cur_thetas()
             v1 = -(1/d)*(cos(t2)*dx+sin(t2)*dy)/L
             v2 = -(1/d)*(cos(t1)*dx+sin(t1)*dy)/L
             self.bm.run(degrees(v1)*V)
             self.tm.run(degrees(v2)*V)
+            #print(self.get_x_y(),d)
             wait(1)
+        self.bm.brake()
+        self.tm.brake()
+        
+
     def draw_polygon(self, poly, off=(0,0)):
         poly.translate(off)
         for point in poly:
             self.safe_position(point)
 
         self.move_to(poly[0])
+        
         self.ready_pen(True)
 
         for point in poly:
             wait(100)
             self.move_to(point)
-            print(point, self.get_x_y())
+            #print(point, self.get_x_y())
 
         self.ready_pen(False)
 
     def ready_pen(self,ready):
         if ready:
           print("ready")
-          self.hm.run_target(self.SPEED, self.pen_offset, then=Stop.BRAKE, wait=True)
+          self.hm.run_target(45, self.pen_offset, then=Stop.BRAKE, wait=True)
         else:
-          self.hm.run_target(self.SPEED, 0, then=Stop.BRAKE, wait=True)
+          self.hm.run_target(45, 0, then=Stop.BRAKE, wait=True)
 
 
 # =============================================================================
@@ -132,7 +133,11 @@ class circle_n:
       percentage_of_circle = x/number_of_points
       new_point = self.radius * cos(2*pi*percentage_of_circle) + self.origin[0] , self.radius * sin(2*pi*percentage_of_circle)+ self.origin[1]
       self.points.append(new_point)
- 
+    
+  def translate(self,off):
+      dx, dy = off
+      self.points = [(x+dx, y+dy) for x, y in self.points]
+
   def __iter__(self):
         for pos in self.points:
             yield pos
@@ -166,8 +171,21 @@ def main():
                     (10,90),])
     poly.translate((-17,36))
     rob = Robot()
-    rob.draw_polygon(poly)
+    #print("HAW")
 
+    #rob.draw_polygon(poly)
+
+    cool_circle = circle_n((55,75), 30, 3)
+
+    #triangle = Polygon([(25,10),
+    #                (140,10),
+    #                (140,80),])
+    #triangle.translate((-17,36))
+
+    #Polygon = circle_n((50,75),) 
+    rob.draw_polygon(cool_circle)
+
+    #print("LOL")
     rob.tm.stop()
     rob.bm.stop()
 
