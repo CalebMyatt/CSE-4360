@@ -95,8 +95,8 @@ class Robot:
             v2 = -(1/d)*(cos(t1)*dx+sin(t1)*dy)/L
             self.bm.run(degrees(v1)*V)
             self.tm.run(degrees(v2)*V)
-            #print(self.get_x_y(),d)
-            wait(1)
+            print(degrees(v1)*V,degrees(v2)*V)
+            wait(100)
         self.bm.brake()
         self.tm.brake()
         
@@ -114,7 +114,7 @@ class Robot:
             wait(100)
             self.move_to(point)
             print(point,self.get_x_y())
-        wait(10000)
+        wait(1000)
         self.ready_pen(False)
 
     def ready_pen(self,ready):
@@ -175,8 +175,8 @@ def main():
     #Current translate
     translate = (-65,74)
     poly = Polygon([(0,0),
-                    (150,0),
-                    (150,100),
+                    (75,0),
+                    (75,100),
                     (0,100)])
     poly.translate(translate)
     rob = Robot()
