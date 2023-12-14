@@ -20,6 +20,8 @@ class Robot:
     
     def reset(self):
         speed = 45
+        last_movement = False
+
         self.tm.run_until_stalled(speed, Stop.HOLD)
         self.tm.reset_angle(330)
 
@@ -31,9 +33,6 @@ class Robot:
 
         self.tm.run_target(speed,180, Stop.HOLD)
         self.bm.run_target(speed,90, Stop.HOLD)
-
-        self.tm.stop()
-        self.bm.stop()
 
         #Create something to adjust pen
 
@@ -60,6 +59,7 @@ class Robot:
     def cur_thetas(self):
         t1 = radians(self.bm.angle())
         t2 = radians(self.tm.angle())
+
         return t1, t2
     def get_x_y(self):
         t1, t2 = self.cur_thetas()
@@ -80,7 +80,7 @@ class Robot:
         dy = y1-y2
         return dx, dy
 
-    def move_to(self, pos, d_thr=1.5):
+    def move_to(self, pos, d_thr=2):
         V, L = self.V, self.L
         self.safe_position(pos)
 
@@ -93,6 +93,7 @@ class Robot:
             t1, t2 = self.cur_thetas()
             v1 = -(1/d)*(cos(t2)*dx+sin(t2)*dy)/L
             v2 = -(1/d)*(cos(t1)*dx+sin(t1)*dy)/L
+
             self.bm.run(degrees(v1)*V)
             self.tm.run(degrees(v2)*V)
             print(degrees(v1)*V,degrees(v2)*V)
@@ -172,24 +173,21 @@ class Polygon:
         return self.verticies[i]
 # =============================================================================
 def main():
-    #Current translate
-    translate = (-65,74)
     poly = Polygon([(0,0),
-                    (75,0),
-                    (75,100),
+                    (150,0),
+                    (150,100),
                     (0,100)])
+
+    poly = circle_n((75,50), 70, 4) # square
+    # poly = circle_n((75,50), 80, 3) # triangle
+    # poly = circle_n((75,50), 60, 8) # octagon
+    
+    translate = (-60,50)
     poly.translate(translate)
+
+    
     rob = Robot()
-    #rob.go_limp()
-
-    #Test in code
-    #cool_circle_close = circle_n((45,50), 40, 5)
-    cool_circle_middle = circle_n((80,50), 40, 4)
-    #cool_circle_far = circle_n((105,50), 40, 5)
-
-    #rob.draw_polygon(poly)
-
-    rob.draw_polygon(cool_circle_middle)
+    rob.draw_polygon(poly)
     
 if __name__ == '__main__':
     main()
